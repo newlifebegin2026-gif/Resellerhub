@@ -46,6 +46,7 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
   const [selectedProductId, setSelectedProductId] = useState<string>('');
   const [customProductTitle, setCustomProductTitle] = useState('');
   const [isCustomProduct, setIsCustomProduct] = useState(false);
+  const [customerFullDetails, setCustomerFullDetails] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
@@ -131,6 +132,26 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
     }
   };
 
+  // Auto-parse details when customer pastes into full details field
+  const handleFullDetailsChange = (val: string) => {
+    setCustomerFullDetails(val);
+
+    // Try extracting phone if phone is empty or previously parsed
+    const phoneMatch = val.match(/(?:(?:\+|00)880|0)?1[3-9]\d{8}/);
+    if (phoneMatch && (!customerPhone || customerPhone.length < 11)) {
+      let cleanedPhone = phoneMatch[0].replace(/^(\+88|88)/, '');
+      if (!cleanedPhone.startsWith('0')) cleanedPhone = '0' + cleanedPhone;
+      setCustomerPhone(cleanedPhone);
+    }
+
+    // Try extracting COD or Price if orderAmount is empty
+    const codMatch = val.match(/(?:cod|cash|amount|price|total|টাকা|৳)\s*[:=\-]?\s*(\d{2,6})/i) ||
+      val.match(/(\d{3,6})\s*(?:tk|taka|bdt|৳|টাকা)/i);
+    if (codMatch && codMatch[1] && (!orderAmount || orderAmount === '0')) {
+      setOrderAmount(codMatch[1]);
+    }
+  };
+
   const selectedReseller = resellers.find((r) => r.id === resellerId) || (currentResellerSession ? {
     id: currentResellerSession.id,
     name: currentResellerSession.name,
@@ -142,8 +163,6 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
 
   const selectedProduct = products.find((p) => p.id === selectedProductId);
   const isDefaultActive = selectedProduct?.isDefault;
-
-  const availableThanas = COMMON_THANAS[district] || [];
 
   // Phone operator check
   const getOperatorInfo = (phone: string) => {
@@ -167,33 +186,38 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
       setErrorMessage('Please select or log in with your Reseller account.');
       return;
     }
-    if (!customerName.trim()) {
-      setErrorMessage('Please enter the customer full name.');
+    if (!customerFullDetails.trim()) {
+      setErrorMessage('Please enter or paste the customer full details.');
       return;
     }
     if (!customerPhone.trim() || customerPhone.length < 9) {
       setErrorMessage('Please enter a valid customer phone number.');
       return;
     }
-    if (!customerAddress.trim()) {
-      setErrorMessage('Please enter the delivery address.');
-      return;
+
+    // Extract / derive name from full details
+    let derivedName = '';
+    const lines = customerFullDetails.split('\n').map(l => l.trim()).filter(Boolean);
+    const nameLineMatch = customerFullDetails.match(/(?:name|customer|নাম)\s*[:=\-]\s*([^\n\r,]+)/i);
+    if (nameLineMatch && nameLineMatch[1]) {
+      derivedName = nameLineMatch[1].trim();
+    } else if (lines.length > 0) {
+      derivedName = lines[0].replace(/^(name|customer|নাম)[:\-\s]+/i, '').trim();
+    }
+    if (!derivedName || derivedName.length > 60 || /^\d+$/.test(derivedName)) {
+      derivedName = 'Customer';
     }
 
+    // Product details
     const finalProductDetails = isCustomProduct
-      ? customProductTitle.trim()
+      ? customProductTitle.trim() || 'E-commerce Order'
       : selectedProduct
       ? `${selectedProduct.name}${selectedProduct.description ? ` (${selectedProduct.description})` : ''}`
       : 'E-commerce Item';
 
-    if (!finalProductDetails) {
-      setErrorMessage('Please specify the product details.');
-      return;
-    }
-
-    const parsedAmount = parseFloat(orderAmount);
+    const parsedAmount = parseFloat(orderAmount) || (selectedProduct ? selectedProduct.price * quantity : 0);
     if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      setErrorMessage('Please enter a valid order amount.');
+      setErrorMessage('Please verify the COD order amount.');
       return;
     }
 
@@ -202,10 +226,10 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
       const res = await api.submitOrder({
         resellerId,
         resellerName: selectedReseller ? selectedReseller.name : currentResellerSession?.name || 'Unknown Reseller',
-        customerName: customerName.trim(),
+        customerName: derivedName,
         customerPhone: customerPhone.trim(),
-        customerAddress: customerAddress.trim(),
-        district,
+        customerAddress: customerFullDetails.trim(),
+        district: district || 'Dhaka',
         thana: thana.trim(),
         productDetails: finalProductDetails,
         quantity: Math.max(1, quantity),
@@ -231,6 +255,7 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
   };
 
   const resetForm = () => {
+    setCustomerFullDetails('');
     setCustomerName('');
     setCustomerPhone('');
     setCustomerAddress('');
@@ -303,9 +328,9 @@ ${submittedOrder.notes ? `• Note: ${submittedOrder.notes}` : ''}
           </div>
 
           <div className="flex justify-between items-start">
-            <span className="text-slate-500 shrink-0">Address:</span>
-            <span className="font-medium text-slate-800 text-right max-w-[240px]">
-              {submittedOrder.customerAddress}, {submittedOrder.thana ? `${submittedOrder.thana}, ` : ''}{submittedOrder.district}
+            <span className="text-slate-500 shrink-0">Details / Address:</span>
+            <span className="font-medium text-slate-800 text-right max-w-[280px] whitespace-pre-wrap">
+              {submittedOrder.customerAddress}
             </span>
           </div>
 
@@ -589,122 +614,60 @@ ${submittedOrder.notes ? `• Note: ${submittedOrder.notes}` : ''}
           </div>
 
           {/* Section 3: Customer Information & Delivery Destination */}
-          <div className="space-y-4">
+          <div className="space-y-4 pt-1">
             <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
               <MapPin className="w-4 h-4 text-indigo-600" />
               3. Customer & Delivery Address <span className="text-red-500">*</span>
             </label>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Customer Full Name <span className="text-red-500">*</span>
+            {/* 1. Customer Full Details (Single Entry Field) */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-800 flex items-center gap-1">
+                  <span>1. Customer Full Details</span>
+                  <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="e.g. Mohammad Rahim"
-                  required
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 focus:bg-white transition"
-                />
+                <span className="text-[11px] text-slate-400">
+                  Name, phone, address, product type, quantity & COD
+                </span>
               </div>
+              <textarea
+                value={customerFullDetails}
+                onChange={(e) => handleFullDetailsChange(e.target.value)}
+                placeholder={`Paste or write customer full details in one field here...\n\nExample:\nName: Mohammad Rahim\nPhone: 01712345678\nAddress: House #12, Road #4, Sector #10, Uttara, Dhaka\nProduct: Smart Watch\nQty: 1\nCOD: 1650`}
+                required
+                rows={6}
+                className="w-full px-4 py-3 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 focus:bg-white transition font-sans placeholder:text-slate-400 leading-relaxed"
+              />
+            </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                  <span>Customer Phone Number <span className="text-red-500">*</span></span>
-                  {operator && (
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${operator.color}`}>
-                      {operator.name}
-                    </span>
-                  )}
+            {/* 2. Customer Phone Number */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-slate-800 flex items-center gap-1">
+                  <Phone className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>2. Customer Phone Number</span>
+                  <span className="text-red-500">*</span>
                 </label>
+                {operator && (
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${operator.color}`}>
+                    {operator.name}
+                  </span>
+                )}
+              </div>
+              <div className="relative">
                 <input
                   type="tel"
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
                   placeholder="e.g. 01712345678"
                   required
-                  className="w-full px-3.5 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 focus:bg-white transition font-mono"
+                  className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 focus:bg-white transition font-mono font-medium text-slate-800"
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Full Street / House Delivery Address <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={customerAddress}
-                onChange={(e) => setCustomerAddress(e.target.value)}
-                placeholder="House #, Road #, Sector/Area, Village/Ward..."
-                required
-                rows={2}
-                className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 focus:bg-white transition"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  District <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={district}
-                  onChange={(e) => {
-                    setDistrict(e.target.value);
-                    setThana('');
-                  }}
-                  className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600"
-                >
-                  {BANGLADESH_DISTRICTS.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Thana / Upazila <span className="text-slate-400 font-normal">(Optional)</span>
-                </label>
-                {availableThanas.length > 0 ? (
-                  <select
-                    value={thana}
-                    onChange={(e) => setThana(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600"
-                  >
-                    <option value="">Select Thana / Upazila</option>
-                    {availableThanas.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={thana}
-                    onChange={(e) => setThana(e.target.value)}
-                    placeholder="Enter Thana / Area name"
-                    className="w-full px-3.5 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600"
-                  />
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">
-                Special Delivery Notes / Courier Instructions <span className="text-slate-400 font-normal">(Optional)</span>
-              </label>
-              <input
-                type="text"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="e.g. Call before delivery, urgent delivery request"
-                className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600"
-              />
+              <p className="text-[11px] text-slate-400 mt-1">
+                Auto-extracted if phone number is pasted above, or enter manually.
+              </p>
             </div>
           </div>
 
