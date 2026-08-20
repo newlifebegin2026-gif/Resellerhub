@@ -6,12 +6,9 @@ import {
   LogOut,
   Package,
   UserCheck,
-  User,
-  Sparkles,
   Cloud,
-  CheckCircle2,
 } from 'lucide-react';
-import { ResellerSession, GoogleUser } from '../types';
+import { ResellerSession } from '../types';
 
 interface NavbarProps {
   activeTab: 'order-entry' | 'my-orders' | 'daily-work' | 'admin' | 'reseller-login';
@@ -22,9 +19,6 @@ interface NavbarProps {
   resellerSession: ResellerSession | null;
   onOpenResellerLogin: () => void;
   onResellerLogout: () => void;
-  googleUser?: GoogleUser | null;
-  onGoogleSignIn?: () => void;
-  onGoogleSignOut?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -36,9 +30,6 @@ export const Navbar: React.FC<NavbarProps> = ({
   resellerSession,
   onOpenResellerLogin,
   onResellerLogout,
-  googleUser,
-  onGoogleSignIn,
-  onGoogleSignOut,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-slate-200/90 shadow-xs">
@@ -109,67 +100,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             </button>
 
             <div className="h-5 w-px bg-slate-200 mx-1 hidden sm:block" />
-
-            {/* Google Authentication (Sign in with any Gmail) */}
-            {googleUser ? (
-              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 rounded-xl px-2.5 py-1.5">
-                {googleUser.photoURL ? (
-                  <img
-                    src={googleUser.photoURL}
-                    alt={googleUser.displayName || 'Google User'}
-                    className="w-6 h-6 rounded-full object-cover border border-slate-200"
-                  />
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-bold">
-                    {(googleUser.displayName || googleUser.email || 'G').charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <div className="hidden xl:block text-left text-xs">
-                  <div className="font-bold text-slate-800 leading-tight truncate max-w-[120px]">
-                    {googleUser.displayName || googleUser.email?.split('@')[0]}
-                  </div>
-                  <div className="text-[10px] text-emerald-600 font-medium">
-                    {googleUser.role === 'admin' ? 'Google Admin' : 'Gmail Connected'}
-                  </div>
-                </div>
-                {onGoogleSignOut && (
-                  <button
-                    onClick={onGoogleSignOut}
-                    title="Sign out Google Account"
-                    className="p-1 text-slate-400 hover:text-red-600 rounded-lg transition ml-1 cursor-pointer"
-                  >
-                    <LogOut className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-            ) : onGoogleSignIn ? (
-              <button
-                id="btn-google-signin"
-                onClick={onGoogleSignIn}
-                className="hidden sm:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 shadow-2xs transition cursor-pointer"
-                title="Connect with any Gmail account to sync data"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.14z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.26 21.36 7.35 24 12 24z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.99 0 12s.46 3.84 1.26 5.42l4.02-3.15z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.35 0 3.26 2.64 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                  />
-                </svg>
-                <span>Gmail Login</span>
-              </button>
-            ) : null}
 
             {/* Reseller Account Profile or Login */}
             {resellerSession ? (

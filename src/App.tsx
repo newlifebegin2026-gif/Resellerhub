@@ -7,43 +7,18 @@ import { ResellerLogin } from './components/reseller/ResellerLogin';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { AdminLoginModal } from './components/admin/AdminLoginModal';
 import { api } from './services/api';
-import { ResellerSession, GoogleUser } from './types';
-import { Package, ShoppingBag, Shield, Sparkles, UserCheck, Cloud } from 'lucide-react';
+import { ResellerSession } from './types';
+import { UserCheck, Cloud, Shield } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'order-entry' | 'my-orders' | 'daily-work' | 'admin' | 'reseller-login'>('order-entry');
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState<boolean>(false);
   const [resellerSession, setResellerSession] = useState<ResellerSession | null>(null);
-  const [googleUser, setGoogleUser] = useState<GoogleUser | null>(null);
 
-  // Check existing sessions and listen to Firebase Auth
+  // Check existing sessions on load
   useEffect(() => {
-    // 1. Listen to Firebase Google Auth changes in real time
-    const unsubscribe = api.onGoogleAuthStateChanged((user) => {
-      setGoogleUser(user);
-      if (user) {
-        if (user.role === 'admin') {
-          setIsAdminLoggedIn(true);
-        }
-        if (user.resellerId) {
-          api.getPublicResellers().then((resellers) => {
-            const matched = resellers.find((r) => r.id === user.resellerId);
-            if (matched) {
-              setResellerSession({
-                id: matched.id,
-                name: matched.name,
-                phone: matched.phone || '',
-                email: matched.email,
-                joinedDate: matched.joinedDate,
-              });
-            }
-          });
-        }
-      }
-    });
-
-    // 2. Check Admin Session
+    // 1. Check Admin Session
     const adminToken = localStorage.getItem('reseller_admin_token');
     if (adminToken) {
       api.getAdminProfile()
@@ -54,7 +29,7 @@ export default function App() {
         });
     }
 
-    // 3. Check Reseller Session
+    // 2. Check Reseller Session
     const resellerToken = localStorage.getItem('reseller_portal_token');
     if (resellerToken) {
       api.getMyResellerProfile()
@@ -72,30 +47,7 @@ export default function App() {
           setResellerSession(null);
         });
     }
-
-    return () => unsubscribe();
   }, []);
-
-  const handleGoogleSignIn = async () => {
-    try {
-      const user = await api.signInWithGoogle();
-      setGoogleUser(user);
-      if (user.role === 'admin') {
-        setIsAdminLoggedIn(true);
-        setActiveTab('admin');
-      }
-    } catch (err: any) {
-      console.error('Google Sign In error:', err);
-    }
-  };
-
-  const handleGoogleSignOut = async () => {
-    await api.signOutGoogle();
-    setGoogleUser(null);
-    setIsAdminLoggedIn(false);
-    setResellerSession(null);
-    setActiveTab('order-entry');
-  };
 
   const handleTabChange = (tab: 'order-entry' | 'my-orders' | 'daily-work' | 'admin' | 'reseller-login') => {
     if (tab === 'admin' && !isAdminLoggedIn) {
@@ -112,6 +64,7 @@ export default function App() {
 
   const handleAdminLogout = () => {
     localStorage.removeItem('reseller_admin_token');
+    localStorage.removeItem('reseller_admin_username');
     setIsAdminLoggedIn(false);
     setActiveTab('order-entry');
   };
@@ -139,9 +92,6 @@ export default function App() {
         resellerSession={resellerSession}
         onOpenResellerLogin={() => setActiveTab('reseller-login')}
         onResellerLogout={handleResellerLogout}
-        googleUser={googleUser}
-        onGoogleSignIn={handleGoogleSignIn}
-        onGoogleSignOut={handleGoogleSignOut}
       />
 
       {/* Main Body */}

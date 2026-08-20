@@ -1,4 +1,4 @@
-import { Reseller, Order, DailyWork, DashboardStats, DatabaseInfo, Product, ResellerSession, GoogleUser } from '../types';
+import { Reseller, Order, DailyWork, DashboardStats, DatabaseInfo, Product, ResellerSession } from '../types';
 import {
   getFirestoreProducts,
   createFirestoreProduct,
@@ -19,55 +19,21 @@ import {
   updateFirestoreDailyWork,
   deleteFirestoreDailyWork,
   getFirestoreDashboardStats,
-  signInWithGoogle,
-  signOutGoogle,
-  onGoogleAuthStateChanged,
+  verifyFirestoreAdminLogin,
+  updateFirestoreAdminCredentials,
 } from './firebase';
-import firebaseConfig from '../../firebase-applet-config.json';
-
-const API_BASE = '/api';
-
-function getAuthHeaders() {
-  const token = localStorage.getItem('reseller_admin_token');
-  return {
-    'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
+import rawFirebaseConfig from '../../firebase-applet-config.json';
 
 export const api = {
-  // ==========================================
-  // GOOGLE AUTH (SIGN IN WITH ANY GMAIL)
-  // ==========================================
-  async signInWithGoogle(): Promise<GoogleUser> {
-    const user = await signInWithGoogle();
-    if (user.role === 'admin') {
-      localStorage.setItem('reseller_admin_token', `firebase_admin_${user.uid}`);
-    }
-    return user;
-  },
-
-  async signOutGoogle(): Promise<void> {
-    await signOutGoogle();
-    localStorage.removeItem('reseller_admin_token');
-    localStorage.removeItem('reseller_portal_token');
-    localStorage.removeItem('reseller_user_session');
-  },
-
-  onGoogleAuthStateChanged(callback: (user: GoogleUser | null) => void) {
-    return onGoogleAuthStateChanged(callback);
-  },
-
   // ==========================================
   // PRODUCTS (Cloud Firestore Powered)
   // ==========================================
   async getProducts(): Promise<Product[]> {
     try {
       return await getFirestoreProducts();
-    } catch {
-      const res = await fetch(`${API_BASE}/products`);
-      const data = await res.json();
-      return data.products || [];
+    } catch (err: any) {
+      console.warn('Firestore products notice:', err);
+      return [];
     }
   },
 
@@ -75,45 +41,27 @@ export const api = {
   // RESELLER AUTHENTICATION & PORTAL
   // ==========================================
   async resellerLogin(name: string, phone: string): Promise<{ token: string; reseller: Reseller }> {
-    try {
-      const reseller = await verifyFirestoreResellerLogin(name, phone);
-      if (!reseller) {
-        throw new Error('Reseller account not found with this name and phone. Please contact Admin.');
-      }
-
-      const token = `reseller_token_${reseller.id}_${Date.now()}`;
-      localStorage.setItem('reseller_portal_token', token);
-      const session: ResellerSession = {
-        id: reseller.id,
-        name: reseller.name,
-        phone: reseller.phone || phone,
-        email: reseller.email,
-        joinedDate: reseller.joinedDate,
-      };
-      localStorage.setItem('reseller_user_session', JSON.stringify(session));
-
-      return { token, reseller };
-    } catch (err: any) {
-      // Fallback to server endpoint
-      const res = await fetch(`${API_BASE}/reseller/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, phone }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || err.message || 'Reseller login failed');
-
-      localStorage.setItem('reseller_portal_token', data.token);
-      const session: ResellerSession = {
-        id: data.reseller.id,
-        name: data.reseller.name,
-        phone: data.reseller.phone,
-        email: data.reseller.email,
-        joinedDate: data.reseller.joinedDate,
-      };
-      localStorage.setItem('reseller_user_session', JSON.stringify(session));
-      return data;
+    const reseller = await verifyFirestoreResellerLogin(name, phone);
+    if (!reseller) {
+      throw new Error(`Reseller account not found for "${name}" (${phone}). Please check the spelling or ask Admin to register you in Admin Panel.`);
     }
+
+    if (reseller.status === 'inactive') {
+      throw new Error(`Account for "${reseller.name}" is currently inactive. Please contact Admin to activate your account.`);
+    }
+
+    const token = `reseller_token_${reseller.id}_${Date.now()}`;
+    localStorage.setItem('reseller_portal_token', token);
+    const session: ResellerSession = {
+      id: reseller.id,
+      name: reseller.name,
+      phone: reseller.phone || phone,
+      email: reseller.email,
+      joinedDate: reseller.joinedDate,
+    };
+    localStorage.setItem('reseller_user_session', JSON.stringify(session));
+
+    return { token, reseller };
   },
 
   getStoredResellerSession(): ResellerSession | null {
@@ -170,15 +118,9 @@ export const api = {
         search: params?.search,
         status: params?.status,
       });
-    } catch {
-      const res = await fetch(`${API_BASE}/reseller/my-orders?${new URLSearchParams(params as any).toString()}`, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('reseller_portal_token')}`,
-        },
-      });
-      const data = await res.json();
-      return data.orders || [];
+    } catch (err) {
+      console.warn('Firestore orders notice:', err);
+      return [];
     }
   },
 
@@ -190,15 +132,9 @@ export const api = {
       return await getFirestoreDailyWorks({
         resellerId: session.id,
       });
-    } catch {
-      const res = await fetch(`${API_BASE}/reseller/my-work-logs`, {
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('reseller_portal_token')}`,
-        },
-      });
-      const data = await res.json();
-      return data.dailyWorks || [];
+    } catch (err) {
+      console.warn('Firestore daily work notice:', err);
+      return [];
     }
   },
 
@@ -208,10 +144,9 @@ export const api = {
   async getPublicResellers(): Promise<Reseller[]> {
     try {
       return await getFirestoreResellers(true);
-    } catch {
-      const res = await fetch(`${API_BASE}/public/resellers`);
-      const data = await res.json();
-      return data.resellers || [];
+    } catch (err) {
+      console.warn('Firestore getPublicResellers notice:', err);
+      return [];
     }
   },
 
@@ -228,20 +163,8 @@ export const api = {
     orderAmount: number;
     notes?: string;
   }): Promise<{ message: string; order: Order }> {
-    try {
-      const order = await createFirestoreOrder(orderData);
-      return { message: 'Order submitted successfully to Cloud Firestore', order };
-    } catch (err: any) {
-      // Fallback
-      const res = await fetch(`${API_BASE}/public/orders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || err.message || 'Failed to submit order');
-      return data;
-    }
+    const order = await createFirestoreOrder(orderData);
+    return { message: 'Order submitted successfully to Cloud Firestore', order };
   },
 
   async submitDailyWork(workData: {
@@ -254,239 +177,88 @@ export const api = {
     adSpend: number;
     notes?: string;
   }): Promise<{ message: string; dailyWork: DailyWork }> {
-    try {
-      const dailyWork = await createFirestoreDailyWork(workData);
-      return { message: 'Daily work logged successfully in Cloud Firestore', dailyWork };
-    } catch (err: any) {
-      const res = await fetch(`${API_BASE}/public/daily-work`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(workData),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || err.message || 'Failed to log daily work');
-      return data;
-    }
+    const dailyWork = await createFirestoreDailyWork(workData);
+    return { message: 'Daily work logged successfully in Cloud Firestore', dailyWork };
   },
 
   // ==========================================
-  // ADMIN AUTHENTICATION
+  // ADMIN AUTHENTICATION (Fixed Admin Credentials)
   // ==========================================
   async adminLogin(username: string, password: string): Promise<{ token: string; admin: { username: string; role: string } }> {
-    const trimmedUser = username.trim();
-    const trimmedPass = password.trim();
-
-    // Check credentials (supports default admin account and custom passwords)
-    const isValidAdmin =
-      (trimmedUser.toLowerCase() === 'admin' && (trimmedPass === 'admin' || trimmedPass === 'admin123' || trimmedPass === 'admin@2026' || trimmedPass === 'password' || trimmedPass.length >= 3)) ||
-      (trimmedUser.toLowerCase() === 'newlifebegin2026@gmail.com');
-
-    if (!isValidAdmin) {
-      throw new Error('Invalid credentials. Default username is "admin" and password is "admin".');
-    }
+    const admin = await verifyFirestoreAdminLogin(username, password);
 
     const token = `reseller_admin_jwt_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     localStorage.setItem('reseller_admin_token', token);
-
-    // If a backend server is running, inform it optionally
-    try {
-      const res = await fetch(`${API_BASE}/admin/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: trimmedUser, password: trimmedPass }),
-      });
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        const data = await res.json();
-        if (data.token) {
-          localStorage.setItem('reseller_admin_token', data.token);
-          return data;
-        }
-      }
-    } catch {
-      // Running on serverless / Vercel without Express backend - client-side admin auth is active
-    }
+    localStorage.setItem('reseller_admin_username', admin.username);
 
     return {
       token,
       admin: {
-        username: trimmedUser,
+        username: admin.username,
         role: 'admin',
       },
     };
   },
 
+  async updateAdminPassword(newUsername: string, newPassword: string): Promise<boolean> {
+    return await updateFirestoreAdminCredentials(newUsername, newPassword);
+  },
+
   async getAdminProfile(): Promise<{ username: string; role: string }> {
     const token = localStorage.getItem('reseller_admin_token');
     if (!token) throw new Error('Not authenticated');
+    const storedUsername = localStorage.getItem('reseller_admin_username') || 'Admin';
 
-    if (token.startsWith('firebase_admin_') || token.startsWith('reseller_admin_jwt_')) {
-      return { username: 'Admin', role: 'admin' };
-    }
-
-    try {
-      const res = await fetch(`${API_BASE}/admin/me`, {
-        headers: getAuthHeaders(),
-      });
-      const contentType = res.headers.get('content-type');
-      if (res.ok && contentType && contentType.includes('application/json')) {
-        const data = await res.json();
-        return data.user;
-      }
-    } catch {
-      // Fallback
-    }
-
-    return { username: 'Admin', role: 'admin' };
+    return { username: storedUsername, role: 'admin' };
   },
 
   // ==========================================
   // ADMIN PRODUCTS MANAGEMENT
   // ==========================================
   async getAdminProducts(): Promise<Product[]> {
-    try {
-      return await getFirestoreProducts();
-    } catch {
-      const res = await fetch(`${API_BASE}/admin/products`, { headers: getAuthHeaders() });
-      const data = await res.json();
-      return data.products || [];
-    }
+    return await getFirestoreProducts();
   },
 
   async createProduct(product: Partial<Product>): Promise<Product> {
-    try {
-      return await createFirestoreProduct(product);
-    } catch {
-      const res = await fetch(`${API_BASE}/admin/products`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(product),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create product');
-      return data.product;
-    }
+    return await createFirestoreProduct(product);
   },
 
   async updateProduct(id: string, product: Partial<Product>): Promise<Product> {
-    try {
-      return await updateFirestoreProduct(id, product);
-    } catch {
-      const res = await fetch(`${API_BASE}/admin/products/${id}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(product),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update product');
-      return data.product;
-    }
+    return await updateFirestoreProduct(id, product);
   },
 
   async deleteProduct(id: string): Promise<boolean> {
-    try {
-      return await deleteFirestoreProduct(id);
-    } catch {
-      const res = await fetch(`${API_BASE}/admin/products/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete product');
-      return true;
-    }
+    return await deleteFirestoreProduct(id);
   },
 
   async setDefaultProduct(id: string): Promise<Product> {
-    try {
-      return await setDefaultFirestoreProduct(id);
-    } catch {
-      const res = await fetch(`${API_BASE}/admin/products/${id}/set-default`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to set default product');
-      return data.product;
-    }
+    return await setDefaultFirestoreProduct(id);
   },
 
   // ==========================================
   // ADMIN DASHBOARD STATS
   // ==========================================
   async getDashboardStats(params?: { startDate?: string; endDate?: string; resellerId?: string }): Promise<DashboardStats> {
-    try {
-      return await getFirestoreDashboardStats(params);
-    } catch {
-      const query = new URLSearchParams();
-      if (params?.startDate) query.append('startDate', params.startDate);
-      if (params?.endDate) query.append('endDate', params.endDate);
-      if (params?.resellerId && params.resellerId !== 'all') query.append('resellerId', params.resellerId);
-
-      const res = await fetch(`${API_BASE}/admin/stats?${query.toString()}`, {
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch dashboard stats');
-      return data.stats;
-    }
+    return await getFirestoreDashboardStats(params);
   },
 
   // ==========================================
   // ADMIN RESELLERS
   // ==========================================
   async getAdminResellers(): Promise<Reseller[]> {
-    try {
-      return await getFirestoreResellers(false);
-    } catch {
-      const res = await fetch(`${API_BASE}/admin/resellers`, { headers: getAuthHeaders() });
-      const data = await res.json();
-      return data.resellers || [];
-    }
+    return await getFirestoreResellers(false);
   },
 
   async createReseller(reseller: Partial<Reseller>): Promise<Reseller> {
-    try {
-      return await createFirestoreReseller(reseller);
-    } catch {
-      const res = await fetch(`${API_BASE}/admin/resellers`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(reseller),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to create reseller');
-      return data.reseller;
-    }
+    return await createFirestoreReseller(reseller);
   },
 
   async updateReseller(id: string, reseller: Partial<Reseller>): Promise<Reseller> {
-    try {
-      return await updateFirestoreReseller(id, reseller);
-    } catch {
-      const res = await fetch(`${API_BASE}/admin/resellers/${id}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(reseller),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update reseller');
-      return data.reseller;
-    }
+    return await updateFirestoreReseller(id, reseller);
   },
 
   async deleteReseller(id: string): Promise<boolean> {
-    try {
-      return await deleteFirestoreReseller(id);
-    } catch {
-      const res = await fetch(`${API_BASE}/admin/resellers/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete reseller');
-      return true;
-    }
+    return await deleteFirestoreReseller(id);
   },
 
   // ==========================================
@@ -500,52 +272,15 @@ export const api = {
     status?: string;
     district?: string;
   }): Promise<Order[]> {
-    try {
-      return await getFirestoreOrders(params);
-    } catch {
-      const query = new URLSearchParams();
-      if (params?.resellerId && params.resellerId !== 'all') query.append('resellerId', params.resellerId);
-      if (params?.search) query.append('search', params.search);
-      if (params?.startDate) query.append('startDate', params.startDate);
-      if (params?.endDate) query.append('endDate', params.endDate);
-      if (params?.status && params.status !== 'all') query.append('status', params.status);
-
-      const res = await fetch(`${API_BASE}/admin/orders?${query.toString()}`, {
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch orders');
-      return data.orders || [];
-    }
+    return await getFirestoreOrders(params);
   },
 
   async updateOrder(id: string, orderData: Partial<Order>): Promise<Order> {
-    try {
-      return await updateFirestoreOrder(id, orderData);
-    } catch {
-      const res = await fetch(`${API_BASE}/admin/orders/${id}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(orderData),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update order');
-      return data.order;
-    }
+    return await updateFirestoreOrder(id, orderData);
   },
 
   async deleteOrder(id: string): Promise<boolean> {
-    try {
-      return await deleteFirestoreOrder(id);
-    } catch {
-      const res = await fetch(`${API_BASE}/admin/orders/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete order');
-      return true;
-    }
+    return await deleteFirestoreOrder(id);
   },
 
   // ==========================================
@@ -556,91 +291,48 @@ export const api = {
     startDate?: string;
     endDate?: string;
   }): Promise<DailyWork[]> {
-    try {
-      return await getFirestoreDailyWorks(params);
-    } catch {
-      const query = new URLSearchParams();
-      if (params?.resellerId && params.resellerId !== 'all') query.append('resellerId', params.resellerId);
-      if (params?.startDate) query.append('startDate', params.startDate);
-      if (params?.endDate) query.append('endDate', params.endDate);
-
-      const res = await fetch(`${API_BASE}/admin/daily-work?${query.toString()}`, {
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch daily work');
-      return data.dailyWorks || [];
-    }
+    return await getFirestoreDailyWorks(params);
   },
 
   async updateDailyWork(id: string, workData: Partial<DailyWork>): Promise<DailyWork> {
-    try {
-      return await updateFirestoreDailyWork(id, workData);
-    } catch {
-      const res = await fetch(`${API_BASE}/admin/daily-work/${id}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(workData),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update daily work');
-      return data.dailyWork;
-    }
+    return await updateFirestoreDailyWork(id, workData);
   },
 
   async deleteDailyWork(id: string): Promise<boolean> {
-    try {
-      return await deleteFirestoreDailyWork(id);
-    } catch {
-      const res = await fetch(`${API_BASE}/admin/daily-work/${id}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete daily work');
-      return true;
-    }
+    return await deleteFirestoreDailyWork(id);
   },
 
   // ==========================================
   // DATABASE STATUS & METRICS
   // ==========================================
   async getDatabaseInfo(): Promise<{ dbInfo: DatabaseInfo; mysqlSchemaSql: string }> {
-    try {
-      const [resellers, products, orders, works] = await Promise.all([
-        getFirestoreResellers(),
-        getFirestoreProducts(),
-        getFirestoreOrders(),
-        getFirestoreDailyWorks(),
-      ]);
+    const [resellers, products, orders, works] = await Promise.all([
+      getFirestoreResellers(),
+      getFirestoreProducts(),
+      getFirestoreOrders(),
+      getFirestoreDailyWorks(),
+    ]);
 
-      const dbInfo: DatabaseInfo = {
-        type: 'firebase',
-        connected: true,
-        message: `Connected to Google Cloud Firestore (${firebaseConfig.projectId})`,
-        counts: {
-          resellers: resellers.length,
-          products: products.length,
-          orders: orders.length,
-          dailyWorks: works.length,
-        },
-        firebaseConfig: {
-          projectId: firebaseConfig.projectId,
-          databaseId: firebaseConfig.firestoreDatabaseId,
-          authDomain: firebaseConfig.authDomain,
-        },
-      };
+    const dbInfo: DatabaseInfo = {
+      type: 'firebase',
+      connected: true,
+      message: `Connected to Google Cloud Firestore (${rawFirebaseConfig.projectId})`,
+      counts: {
+        resellers: resellers.length,
+        products: products.length,
+        orders: orders.length,
+        dailyWorks: works.length,
+      },
+      firebaseConfig: {
+        projectId: rawFirebaseConfig.projectId,
+        databaseId: rawFirebaseConfig.firestoreDatabaseId,
+        authDomain: rawFirebaseConfig.authDomain,
+      },
+    };
 
-      return {
-        dbInfo,
-        mysqlSchemaSql: '-- Firebase Firestore Cloud Database Active\n-- All collections automatically synced and indexed.',
-      };
-    } catch {
-      const res = await fetch(`${API_BASE}/admin/database-info`, {
-        headers: getAuthHeaders(),
-      });
-      const data = await res.json();
-      return data;
-    }
+    return {
+      dbInfo,
+      mysqlSchemaSql: '-- Firebase Firestore Cloud Database Active\n-- All collections automatically synced and indexed.',
+    };
   },
 };
