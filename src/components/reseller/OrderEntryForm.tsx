@@ -72,6 +72,8 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
 
   // Form Fields
   const [resellerId, setResellerId] = useState(currentResellerSession?.id || '');
+  const [guestResellerName, setGuestResellerName] = useState('');
+  const [guestResellerPhone, setGuestResellerPhone] = useState('');
   const [customerFullDetails, setCustomerFullDetails] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -127,18 +129,8 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
   const loadData = async () => {
     try {
       setLoadingData(true);
-      const [resellersData, productsData] = await Promise.all([
-        api.getPublicResellers(),
-        api.getProducts(),
-      ]);
-
-      setResellers(resellersData);
+      const productsData = await api.getProducts();
       setProducts(productsData);
-
-      // Default reseller if none logged in
-      if (!currentResellerSession && resellersData.length > 0) {
-        setResellerId(resellersData[0].id);
-      }
 
       // Default product selection for row 1
       if (productsData.length > 0) {
@@ -460,15 +452,14 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
       return sum + unitProfit * it.quantity;
     }, 0);
 
-    const selectedReseller = resellers.find((r) => r.id === resellerId) || (currentResellerSession ? {
-      name: currentResellerSession.name,
-    } : undefined);
+    const activeResellerId = currentResellerSession?.id || (guestResellerPhone.trim() || `guest_${Date.now()}`);
+    const activeResellerName = currentResellerSession?.name || (guestResellerName.trim() || 'Direct Reseller');
 
     try {
       setSubmitting(true);
       const res = await api.submitOrder({
-        resellerId,
-        resellerName: selectedReseller?.name || 'Reseller',
+        resellerId: activeResellerId,
+        resellerName: activeResellerName,
         customerName: derivedName,
         customerPhone: customerPhone.trim(),
         customerAddress: customerFullDetails.trim(),
@@ -697,27 +688,34 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
             </p>
           </div>
 
-          {/* Reseller Badge */}
+          {/* Reseller Badge / Identity */}
           {currentResellerSession ? (
             <div className="bg-white/15 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 border border-white/20">
               <User className="w-4 h-4 text-blue-200" />
               <span>Logged in as: <strong>{currentResellerSession.name}</strong></span>
             </div>
           ) : (
-            <div className="w-full sm:w-auto">
-              <label className="text-xs text-blue-100 block mb-1">Reseller Account:</label>
-              <select
-                id="reseller_select_input"
-                value={resellerId}
-                onChange={(e) => setResellerId(e.target.value)}
-                className="bg-white/10 border border-white/20 text-white text-xs rounded-lg px-2.5 py-1.5 w-full focus:bg-slate-900"
-              >
-                {resellers.map((r) => (
-                  <option key={r.id} value={r.id} className="text-slate-900">
-                    {r.name} ({r.phone})
-                  </option>
-                ))}
-              </select>
+            <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2 items-end sm:items-center">
+              <div className="w-full sm:w-auto">
+                <input
+                  id="reseller_guest_name_input"
+                  type="text"
+                  placeholder="Your Reseller Name"
+                  value={guestResellerName}
+                  onChange={(e) => setGuestResellerName(e.target.value)}
+                  className="bg-white/10 border border-white/20 text-white placeholder-blue-200 text-xs rounded-lg px-2.5 py-1.5 w-full sm:w-40 focus:bg-slate-900 focus:outline-none"
+                />
+              </div>
+              <div className="w-full sm:w-auto">
+                <input
+                  id="reseller_guest_phone_input"
+                  type="text"
+                  placeholder="Your Phone Number"
+                  value={guestResellerPhone}
+                  onChange={(e) => setGuestResellerPhone(e.target.value)}
+                  className="bg-white/10 border border-white/20 text-white placeholder-blue-200 text-xs rounded-lg px-2.5 py-1.5 w-full sm:w-36 focus:bg-slate-900 focus:outline-none"
+                />
+              </div>
             </div>
           )}
         </div>

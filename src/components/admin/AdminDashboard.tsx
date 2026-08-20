@@ -269,6 +269,20 @@ export const AdminDashboard: React.FC = () => {
     }
   };
 
+  const handleRestoreSalesData = async () => {
+    if (!window.confirm('Restore initial sales orders, ad spends, and daily shift records to Cloud Firestore?')) return;
+    try {
+      setRefreshing(true);
+      await api.seedSalesData(true);
+      await loadAllData();
+      alert('All sales data successfully restored in Cloud Firestore!');
+    } catch (err: any) {
+      alert(err.message || 'Failed to restore sales data.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   // --- Export CSV helper ---
   const handleExportOrdersCSV = () => {
     if (orders.length === 0) {
@@ -348,6 +362,17 @@ export const AdminDashboard: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            id="btn-restore-sales-data"
+            onClick={handleRestoreSalesData}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 shadow-2xs transition-all cursor-pointer"
+            title="Restore and seed sales orders, ad spends, and daily logs"
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>Restore Sales Data</span>
+          </button>
+
           <button
             id="btn-refresh-data"
             onClick={loadAllData}

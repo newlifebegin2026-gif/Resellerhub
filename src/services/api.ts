@@ -25,6 +25,7 @@ import {
   getFirestoreDashboardStats,
   verifyFirestoreAdminLogin,
   updateFirestoreAdminCredentials,
+  seedInitialSalesDataToFirestore,
 } from './firebase';
 import rawFirebaseConfig from '../../firebase-applet-config.json';
 
@@ -556,5 +557,9 @@ export const api = {
         recentOrders: [],
       };
     }
+  },
+
+  async seedSalesData(force: boolean = true): Promise<boolean> {
+    return await seedInitialSalesDataToFirestore(force);
   },
 };

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { api } from '../../services/api';
 import { ResellerSession } from '../../types';
-import { Phone, User, AlertCircle, ArrowRight, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Phone, User, AlertCircle, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Logo } from '../Logo';
 
 interface ResellerLoginProps {
@@ -40,12 +40,6 @@ export const ResellerLogin: React.FC<ResellerLoginProps> = ({ onLoginSuccess, on
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickDemo = (demoName: string, demoPhone: string) => {
-    setName(demoName);
-    setPhone(demoPhone);
-    setError(null);
   };
 
   return (
@@ -134,34 +128,12 @@ export const ResellerLogin: React.FC<ResellerLoginProps> = ({ onLoginSuccess, on
             </button>
           )}
 
-          {/* Quick Demo Resellers */}
+          {/* Secure Reseller Login Note */}
           <div className="pt-4 border-t border-slate-100">
-            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-              Assigned Reseller Logins
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('Tanvir Rahman', '01711223344')}
-                className="text-left p-2 rounded-lg bg-slate-50 hover:bg-indigo-50/70 border border-slate-200/70 text-xs transition cursor-pointer"
-              >
-                <div className="font-medium text-slate-800">Tanvir Rahman</div>
-                <div className="text-[10px] text-slate-500 font-mono">01711223344</div>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('Sadia Islam', '01644556677')}
-                className="text-left p-2 rounded-lg bg-slate-50 hover:bg-indigo-50/70 border border-slate-200/70 text-xs transition cursor-pointer"
-              >
-                <div className="font-medium text-slate-800">Sadia Islam</div>
-                <div className="text-[10px] text-slate-500 font-mono">01644556677</div>
-              </button>
-            </div>
-            <div className="mt-3 p-2.5 bg-emerald-50/80 border border-emerald-200/60 rounded-lg text-[11px] text-emerald-900 leading-relaxed flex items-start gap-1.5">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+            <div className="p-3 bg-blue-50/80 border border-blue-200/60 rounded-xl text-xs text-blue-900 leading-relaxed flex items-start gap-2">
+              <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
               <span>
-                <strong>Cloud Firestore Sync:</strong> Admin can add or assign any reseller in the Admin Panel, and they can sign in immediately with their Name and Phone number.
+                <strong>Confidential Reseller Portal:</strong> Each reseller account is completely isolated. Sign in with your registered Name and Phone number to access your dedicated sales and orders dashboard.
               </span>
             </div>
           </div>
