@@ -143,13 +143,15 @@ export const AdSpendManagement: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this ad spend entry?')) return;
+    if (!window.confirm('Are you sure you want to delete this ad spend entry? This will permanently delete it from Firebase.')) return;
     try {
+      setSpends((prev) => prev.filter((s) => s.id !== id));
       await api.deleteAdSpend(id);
-      showToast('Ad spend record deleted.');
-      fetchData();
+      showToast('Ad spend record deleted permanently.');
+      await fetchData();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete entry.');
+      alert(err.message || 'Failed to delete entry from Firebase.');
+      await fetchData();
     }
   };
 

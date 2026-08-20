@@ -139,911 +139,189 @@ const INITIAL_PRODUCTS: Product[] = [
   },
 ];
 
-const INITIAL_RESELLERS: Reseller[] = [
-  {
-    id: 'res_01',
-    name: 'Tanvir Rahman',
-    phone: '01711223344',
-    email: 'tanvir.reseller@example.com',
-    status: 'active',
-    joinedDate: '2026-01-10',
-    notes: 'Dhaka region top performer',
-  },
-  {
-    id: 'res_02',
-    name: 'Shakil Ahmed',
-    phone: '01822334455',
-    email: 'shakil.ahmed@example.com',
-    status: 'active',
-    joinedDate: '2026-01-15',
-    notes: 'Chittagong & Sylhet coverage',
-  },
-  {
-    id: 'res_03',
-    name: 'Nusrat Jahan',
-    phone: '01933445566',
-    email: 'nusrat.jahan@example.com',
-    status: 'active',
-    joinedDate: '2026-02-01',
-    notes: 'Facebook & TikTok ads specialist',
-  },
-  {
-    id: 'res_04',
-    name: 'Sadia Islam',
-    phone: '01644556677',
-    email: 'sadia.islam@example.com',
-    status: 'active',
-    joinedDate: '2026-02-12',
-    notes: 'Fashion & apparel specialist',
-  },
-  {
-    id: 'res_05',
-    name: 'Arafat Hossain',
-    phone: '01555667788',
-    email: 'arafat.hossain@example.com',
-    status: 'active',
-    joinedDate: '2026-02-20',
-    notes: 'Gadgets & accessories affiliate',
-  },
-];
+const INITIAL_RESELLERS: Reseller[] = [];
 
-const INITIAL_ORDERS: Order[] = [
-  {
-    id: 'ORD-20260819-4821',
-    resellerId: 'res_01',
-    resellerName: 'Tanvir Rahman',
-    customerName: 'Kazi Farhan',
-    customerPhone: '01712984512',
-    customerAddress: 'House 24, Road 7, Sector 3, Uttara, Dhaka',
-    district: 'Dhaka',
-    thana: 'Uttara',
-    productDetails: 'Wireless Bluetooth Earbuds Pro (Black Edition) x 1',
-    quantity: 1,
-    orderAmount: 1710,
-    productsTotal: 1650,
-    deliveryLocation: 'Dhaka',
-    deliveryCharge: 60,
-    orderType: 'Direct Order',
-    items: [
-      {
-        productId: 'prod_01',
-        productName: 'Wireless Bluetooth Earbuds Pro (Black Edition)',
-        quantity: 1,
-        unitPrice: 1650,
-        totalPrice: 1650,
-        profitBeforeAdCostPerUnit: 700,
-      },
-    ],
-    profitBeforeAdCost: 700,
-    status: 'Delivered',
-    notes: 'Call before delivery. Afternoon preferred.',
-    orderDate: '2026-08-19T14:30:00.000Z',
-    createdAt: '2026-08-19T14:30:00.000Z',
-  },
-  {
-    id: 'ORD-20260819-8192',
-    resellerId: 'res_02',
-    resellerName: 'Shakil Ahmed',
-    customerName: 'Arif Chowdhury',
-    customerPhone: '01819384721',
-    customerAddress: 'Nasirabad Housing Society, GEC Circle, Chittagong',
-    district: 'Chittagong',
-    thana: 'Panchlaish',
-    productDetails: 'Premium Smart Watch Ultra (AMOLED + Dual Strap) x 1',
-    quantity: 1,
-    orderAmount: 2520,
-    productsTotal: 2400,
-    deliveryLocation: 'Other District',
-    deliveryCharge: 120,
-    orderType: 'Direct Order',
-    items: [
-      {
-        productId: 'prod_02',
-        productName: 'Premium Smart Watch Ultra (AMOLED + Dual Strap)',
-        quantity: 1,
-        unitPrice: 2400,
-        totalPrice: 2400,
-        profitBeforeAdCostPerUnit: 1050,
-      },
-    ],
-    profitBeforeAdCost: 1050,
-    status: 'Delivered',
-    notes: 'Urgent courier delivery.',
-    orderDate: '2026-08-19T16:15:00.000Z',
-    createdAt: '2026-08-19T16:15:00.000Z',
-  },
-  {
-    id: 'ORD-20260818-5912',
-    resellerId: 'res_03',
-    resellerName: 'Nusrat Jahan',
-    customerName: 'Sultana Begum',
-    customerPhone: '01912487391',
-    customerAddress: 'Zindabazar, Point View Shopping Mall Area, Sylhet',
-    district: 'Sylhet',
-    thana: 'Kotwali',
-    productDetails: 'Men Designer Leather Wallet & Belt Gift Combo x 1',
-    quantity: 1,
-    orderAmount: 2070,
-    productsTotal: 1950,
-    deliveryLocation: 'Other District',
-    deliveryCharge: 120,
-    orderType: 'Direct Order',
-    items: [
-      {
-        productId: 'prod_04',
-        productName: 'Men Designer Leather Wallet & Belt Gift Combo',
-        quantity: 1,
-        unitPrice: 1950,
-        totalPrice: 1950,
-        profitBeforeAdCostPerUnit: 890,
-      },
-    ],
-    profitBeforeAdCost: 890,
-    status: 'Shipped',
-    notes: 'Gift package wrap requested.',
-    orderDate: '2026-08-18T11:20:00.000Z',
-    createdAt: '2026-08-18T11:20:00.000Z',
-  },
-  {
-    id: 'ORD-20260818-7341',
-    resellerId: 'res_01',
-    resellerName: 'Tanvir Rahman',
-    customerName: 'Mahmudul Hasan',
-    customerPhone: '01755123984',
-    customerAddress: 'Flat 4B, Block D, Mirpur 12, Dhaka',
-    district: 'Dhaka',
-    thana: 'Mirpur',
-    productDetails: 'RGB Mechanical Gaming Keyboard with Blue Switches x 1',
-    quantity: 1,
-    orderAmount: 3160,
-    productsTotal: 3100,
-    deliveryLocation: 'Dhaka',
-    deliveryCharge: 60,
-    orderType: 'Direct Order',
-    items: [
-      {
-        productId: 'prod_05',
-        productName: 'RGB Mechanical Gaming Keyboard with Blue Switches',
-        quantity: 1,
-        unitPrice: 3100,
-        totalPrice: 3100,
-        profitBeforeAdCostPerUnit: 1370,
-      },
-    ],
-    profitBeforeAdCost: 1370,
-    status: 'Delivered',
-    notes: 'Test switch keys before dispatch.',
-    orderDate: '2026-08-18T15:45:00.000Z',
-    createdAt: '2026-08-18T15:45:00.000Z',
-  },
-  {
-    id: 'ORD-20260817-9023',
-    resellerId: 'res_04',
-    resellerName: 'Sadia Islam',
-    customerName: 'Tahmina Akter',
-    customerPhone: '01677349182',
-    customerAddress: 'Chandgaon R/A, Block B, Chittagong',
-    district: 'Chittagong',
-    thana: 'Chandgaon',
-    productDetails: 'Fast Charging 65W GaN Charger 3-Port x 2',
-    quantity: 2,
-    orderAmount: 2520,
-    productsTotal: 2400,
-    deliveryLocation: 'Other District',
-    deliveryCharge: 120,
-    orderType: 'Direct Order',
-    items: [
-      {
-        productId: 'prod_03',
-        productName: 'Fast Charging 65W GaN Charger 3-Port',
-        quantity: 2,
-        unitPrice: 1200,
-        totalPrice: 2400,
-        profitBeforeAdCostPerUnit: 520,
-      },
-    ],
-    profitBeforeAdCost: 1040,
-    status: 'Delivered',
-    notes: 'Double item order.',
-    orderDate: '2026-08-17T09:10:00.000Z',
-    createdAt: '2026-08-17T09:10:00.000Z',
-  },
-  {
-    id: 'ORD-20260817-4412',
-    resellerId: 'res_05',
-    resellerName: 'Arafat Hossain',
-    customerName: 'Mehedi Hasan',
-    customerPhone: '01511893472',
-    customerAddress: 'Shaheb Bazar Zero Point, Rajshahi',
-    district: 'Rajshahi',
-    thana: 'Boalia',
-    productDetails: 'Wireless Bluetooth Earbuds Pro (Black Edition) x 1',
-    quantity: 1,
-    orderAmount: 1770,
-    productsTotal: 1650,
-    deliveryLocation: 'Other District',
-    deliveryCharge: 120,
-    orderType: 'Follow-up Order',
-    items: [
-      {
-        productId: 'prod_01',
-        productName: 'Wireless Bluetooth Earbuds Pro (Black Edition)',
-        quantity: 1,
-        unitPrice: 1650,
-        totalPrice: 1650,
-        profitBeforeAdCostPerUnit: 700,
-      },
-    ],
-    profitBeforeAdCost: 700,
-    status: 'Delivered',
-    notes: 'Repeat customer from Messenger follow-up.',
-    orderDate: '2026-08-17T18:00:00.000Z',
-    createdAt: '2026-08-17T18:00:00.000Z',
-  },
-  {
-    id: 'ORD-20260816-1934',
-    resellerId: 'res_01',
-    resellerName: 'Tanvir Rahman',
-    customerName: 'Kamrul Islam',
-    customerPhone: '01719283746',
-    customerAddress: 'House 12, Road 5, Dhanmondi, Dhaka',
-    district: 'Dhaka',
-    thana: 'Dhanmondi',
-    productDetails: 'Premium Smart Watch Ultra (AMOLED + Dual Strap) x 1',
-    quantity: 1,
-    orderAmount: 2460,
-    productsTotal: 2400,
-    deliveryLocation: 'Dhaka',
-    deliveryCharge: 60,
-    orderType: 'Direct Order',
-    items: [
-      {
-        productId: 'prod_02',
-        productName: 'Premium Smart Watch Ultra (AMOLED + Dual Strap)',
-        quantity: 1,
-        unitPrice: 2400,
-        totalPrice: 2400,
-        profitBeforeAdCostPerUnit: 1050,
-      },
-    ],
-    profitBeforeAdCost: 1050,
-    status: 'Delivered',
-    notes: 'Home delivery.',
-    orderDate: '2026-08-16T13:40:00.000Z',
-    createdAt: '2026-08-16T13:40:00.000Z',
-  },
-  {
-    id: 'ORD-20260816-6281',
-    resellerId: 'res_02',
-    resellerName: 'Shakil Ahmed',
-    customerName: 'Anowar Hossain',
-    customerPhone: '01827461928',
-    customerAddress: 'Jhautola Main Road, Comilla Sadar',
-    district: 'Comilla',
-    thana: 'Kotwali',
-    productDetails: 'Men Designer Leather Wallet & Belt Gift Combo x 1',
-    quantity: 1,
-    orderAmount: 2070,
-    productsTotal: 1950,
-    deliveryLocation: 'Other District',
-    deliveryCharge: 120,
-    orderType: 'Direct Order',
-    items: [
-      {
-        productId: 'prod_04',
-        productName: 'Men Designer Leather Wallet & Belt Gift Combo',
-        quantity: 1,
-        unitPrice: 1950,
-        totalPrice: 1950,
-        profitBeforeAdCostPerUnit: 890,
-      },
-    ],
-    profitBeforeAdCost: 890,
-    status: 'Confirmed',
-    notes: 'Cash on delivery.',
-    orderDate: '2026-08-16T16:20:00.000Z',
-    createdAt: '2026-08-16T16:20:00.000Z',
-  },
-  {
-    id: 'ORD-20260815-3819',
-    resellerId: 'res_03',
-    resellerName: 'Nusrat Jahan',
-    customerName: 'Jannatul Ferdous',
-    customerPhone: '01988372615',
-    customerAddress: 'Shibbari Mor, Khulna Sadar, Khulna',
-    district: 'Khulna',
-    thana: 'Sadar',
-    productDetails: 'Wireless Bluetooth Earbuds Pro (Black Edition) x 1',
-    quantity: 1,
-    orderAmount: 1770,
-    productsTotal: 1650,
-    deliveryLocation: 'Other District',
-    deliveryCharge: 120,
-    orderType: 'Direct Order',
-    items: [
-      {
-        productId: 'prod_01',
-        productName: 'Wireless Bluetooth Earbuds Pro (Black Edition)',
-        quantity: 1,
-        unitPrice: 1650,
-        totalPrice: 1650,
-        profitBeforeAdCostPerUnit: 700,
-      },
-    ],
-    profitBeforeAdCost: 700,
-    status: 'Delivered',
-    notes: 'Delivery confirmation completed.',
-    orderDate: '2026-08-15T12:00:00.000Z',
-    createdAt: '2026-08-15T12:00:00.000Z',
-  },
-  {
-    id: 'ORD-20260815-7721',
-    resellerId: 'res_01',
-    resellerName: 'Tanvir Rahman',
-    customerName: 'Shakawat Ali',
-    customerPhone: '01733849201',
-    customerAddress: 'Board Bazar, National University Area, Gazipur',
-    district: 'Gazipur',
-    thana: 'Gazipur Sadar',
-    productDetails: 'RGB Mechanical Gaming Keyboard with Blue Switches x 1',
-    quantity: 1,
-    orderAmount: 3220,
-    productsTotal: 3100,
-    deliveryLocation: 'Other District',
-    deliveryCharge: 120,
-    orderType: 'Direct Order',
-    items: [
-      {
-        productId: 'prod_05',
-        productName: 'RGB Mechanical Gaming Keyboard with Blue Switches',
-        quantity: 1,
-        unitPrice: 3100,
-        totalPrice: 3100,
-        profitBeforeAdCostPerUnit: 1370,
-      },
-    ],
-    profitBeforeAdCost: 1370,
-    status: 'Delivered',
-    notes: 'Customer very satisfied with build quality.',
-    orderDate: '2026-08-15T17:10:00.000Z',
-    createdAt: '2026-08-15T17:10:00.000Z',
-  },
-  {
-    id: 'ORD-20260814-2918',
-    resellerId: 'res_04',
-    resellerName: 'Sadia Islam',
-    customerName: 'Nasrin Sultana',
-    customerPhone: '01688273619',
-    customerAddress: 'Chashara, B.B. Road, Narayanganj',
-    district: 'Narayanganj',
-    thana: 'Sadar',
-    productDetails: 'Premium Smart Watch Ultra (AMOLED + Dual Strap) x 1',
-    quantity: 1,
-    orderAmount: 2520,
-    productsTotal: 2400,
-    deliveryLocation: 'Other District',
-    deliveryCharge: 120,
-    orderType: 'Direct Order',
-    items: [
-      {
-        productId: 'prod_02',
-        productName: 'Premium Smart Watch Ultra (AMOLED + Dual Strap)',
-        quantity: 1,
-        unitPrice: 2400,
-        totalPrice: 2400,
-        profitBeforeAdCostPerUnit: 1050,
-      },
-    ],
-    profitBeforeAdCost: 1050,
-    status: 'Delivered',
-    notes: 'Silver strap color included.',
-    orderDate: '2026-08-14T11:50:00.000Z',
-    createdAt: '2026-08-14T11:50:00.000Z',
-  },
-  {
-    id: 'ORD-20260813-8834',
-    resellerId: 'res_02',
-    resellerName: 'Shakil Ahmed',
-    customerName: 'Zubair Hossain',
-    customerPhone: '01899283716',
-    customerAddress: 'Agrabad C/A, Commercial Area, Chittagong',
-    district: 'Chittagong',
-    thana: 'Double Mooring',
-    productDetails: 'Fast Charging 65W GaN Charger 3-Port x 1',
-    quantity: 1,
-    orderAmount: 1320,
-    productsTotal: 1200,
-    deliveryLocation: 'Other District',
-    deliveryCharge: 120,
-    orderType: 'Follow-up Order',
-    items: [
-      {
-        productId: 'prod_03',
-        productName: 'Fast Charging 65W GaN Charger 3-Port',
-        quantity: 1,
-        unitPrice: 1200,
-        totalPrice: 1200,
-        profitBeforeAdCostPerUnit: 520,
-      },
-    ],
-    profitBeforeAdCost: 520,
-    status: 'Delivered',
-    notes: 'Re-order for office use.',
-    orderDate: '2026-08-13T15:25:00.000Z',
-    createdAt: '2026-08-13T15:25:00.000Z',
-  },
-  {
-    id: 'ORD-20260812-4192',
-    resellerId: 'res_01',
-    resellerName: 'Tanvir Rahman',
-    customerName: 'Shahinur Rahman',
-    customerPhone: '01744928371',
-    customerAddress: 'House 8, Road 11, Banani, Dhaka',
-    district: 'Dhaka',
-    thana: 'Banani',
-    productDetails: 'Wireless Bluetooth Earbuds Pro (Black Edition) x 1, Fast Charging 65W GaN Charger 3-Port x 1',
-    quantity: 2,
-    orderAmount: 2910,
-    productsTotal: 2850,
-    deliveryLocation: 'Dhaka',
-    deliveryCharge: 60,
-    orderType: 'Direct Order',
-    items: [
-      {
-        productId: 'prod_01',
-        productName: 'Wireless Bluetooth Earbuds Pro (Black Edition)',
-        quantity: 1,
-        unitPrice: 1650,
-        totalPrice: 1650,
-        profitBeforeAdCostPerUnit: 700,
-      },
-      {
-        productId: 'prod_03',
-        productName: 'Fast Charging 65W GaN Charger 3-Port',
-        quantity: 1,
-        unitPrice: 1200,
-        totalPrice: 1200,
-        profitBeforeAdCostPerUnit: 520,
-      },
-    ],
-    profitBeforeAdCost: 1220,
-    status: 'Delivered',
-    notes: 'Combo pack with bundle packaging.',
-    orderDate: '2026-08-12T10:15:00.000Z',
-    createdAt: '2026-08-12T10:15:00.000Z',
-  },
-  {
-    id: 'ORD-20260811-6623',
-    resellerId: 'res_03',
-    resellerName: 'Nusrat Jahan',
-    customerName: 'Rashedul Karim',
-    customerPhone: '01977283910',
-    customerAddress: 'Kaliajur, Mymensingh Sadar, Mymensingh',
-    district: 'Mymensingh',
-    thana: 'Kotwali',
-    productDetails: 'Men Designer Leather Wallet & Belt Gift Combo x 1',
-    quantity: 1,
-    orderAmount: 2070,
-    productsTotal: 1950,
-    deliveryLocation: 'Other District',
-    deliveryCharge: 120,
-    orderType: 'Direct Order',
-    items: [
-      {
-        productId: 'prod_04',
-        productName: 'Men Designer Leather Wallet & Belt Gift Combo',
-        quantity: 1,
-        unitPrice: 1950,
-        totalPrice: 1950,
-        profitBeforeAdCostPerUnit: 890,
-      },
-    ],
-    profitBeforeAdCost: 890,
-    status: 'Delivered',
-    notes: 'Delivered successfully.',
-    orderDate: '2026-08-11T14:40:00.000Z',
-    createdAt: '2026-08-11T14:40:00.000Z',
-  },
-  {
-    id: 'ORD-20260810-7382',
-    resellerId: 'res_05',
-    resellerName: 'Arafat Hossain',
-    customerName: 'Imran Nazir',
-    customerPhone: '01533928172',
-    customerAddress: 'College Road, Bogra Sadar, Bogra',
-    district: 'Bogra',
-    thana: 'Sadar',
-    productDetails: 'RGB Mechanical Gaming Keyboard with Blue Switches x 1',
-    quantity: 1,
-    orderAmount: 3220,
-    productsTotal: 3100,
-    deliveryLocation: 'Other District',
-    deliveryCharge: 120,
-    orderType: 'Direct Order',
-    items: [
-      {
-        productId: 'prod_05',
-        productName: 'RGB Mechanical Gaming Keyboard with Blue Switches',
-        quantity: 1,
-        unitPrice: 3100,
-        totalPrice: 3100,
-        profitBeforeAdCostPerUnit: 1370,
-      },
-    ],
-    profitBeforeAdCost: 1370,
-    status: 'Delivered',
-    notes: 'Fragile sticker on box.',
-    orderDate: '2026-08-10T16:00:00.000Z',
-    createdAt: '2026-08-10T16:00:00.000Z',
-  },
-  {
-    id: 'ORD-20260820-1011',
-    resellerId: 'res_01',
-    resellerName: 'Tanvir Rahman',
-    customerName: 'Fahim Shahriar',
-    customerPhone: '01799182736',
-    customerAddress: 'Gulshan 2, Road 71, House 15, Dhaka',
-    district: 'Dhaka',
-    thana: 'Gulshan',
-    productDetails: 'Premium Smart Watch Ultra (AMOLED + Dual Strap) x 1',
-    quantity: 1,
-    orderAmount: 2460,
-    productsTotal: 2400,
-    deliveryLocation: 'Dhaka',
-    deliveryCharge: 60,
-    orderType: 'Direct Order',
-    items: [
-      {
-        productId: 'prod_02',
-        productName: 'Premium Smart Watch Ultra (AMOLED + Dual Strap)',
-        quantity: 1,
-        unitPrice: 2400,
-        totalPrice: 2400,
-        profitBeforeAdCostPerUnit: 1050,
-      },
-    ],
-    profitBeforeAdCost: 1050,
-    status: 'Pending',
-    notes: 'Call customer at 3pm for confirmation.',
-    orderDate: '2026-08-20T09:30:00.000Z',
-    createdAt: '2026-08-20T09:30:00.000Z',
-  },
-  {
-    id: 'ORD-20260820-2022',
-    resellerId: 'res_04',
-    resellerName: 'Sadia Islam',
-    customerName: 'Nusrat Parvin',
-    customerPhone: '01622918273',
-    customerAddress: 'Ambarkhana, Airport Road, Sylhet',
-    district: 'Sylhet',
-    thana: 'Kotwali',
-    productDetails: 'Wireless Bluetooth Earbuds Pro (Black Edition) x 1',
-    quantity: 1,
-    orderAmount: 1770,
-    productsTotal: 1650,
-    deliveryLocation: 'Other District',
-    deliveryCharge: 120,
-    orderType: 'Direct Order',
-    items: [
-      {
-        productId: 'prod_01',
-        productName: 'Wireless Bluetooth Earbuds Pro (Black Edition)',
-        quantity: 1,
-        unitPrice: 1650,
-        totalPrice: 1650,
-        profitBeforeAdCostPerUnit: 700,
-      },
-    ],
-    profitBeforeAdCost: 700,
-    status: 'Confirmed',
-    notes: 'Packaging ready for courier pickup.',
-    orderDate: '2026-08-20T11:00:00.000Z',
-    createdAt: '2026-08-20T11:00:00.000Z',
-  },
-];
+const INITIAL_ORDERS: Order[] = [];
 
-const INITIAL_AD_SPENDS: AdSpendEntry[] = [
-  {
-    id: 'ad_today_01',
-    resellerId: 'res_01',
-    resellerName: 'Tanvir Rahman',
-    date: '2026-08-20',
-    platform: 'Facebook / Meta Ads',
-    amount: 420,
-    notes: 'Smart watch and earbuds conversion campaign',
-    createdAt: '2026-08-20T10:00:00.000Z',
-  },
-  {
-    id: 'ad_today_02',
-    resellerId: 'res_04',
-    resellerName: 'Sadia Islam',
-    date: '2026-08-20',
-    platform: 'Facebook / Meta Ads',
-    amount: 320,
-    notes: 'Earbuds pro messenger ad campaign',
-    createdAt: '2026-08-20T11:00:00.000Z',
-  },
-  {
-    id: 'ad_01',
-    resellerId: 'res_01',
-    resellerName: 'Tanvir Rahman',
-    date: '2026-08-19',
-    platform: 'Facebook / Meta Ads',
-    amount: 350,
-    notes: 'Earbuds Pro Advantage+ Conversion campaign',
-    createdAt: '2026-08-19T20:00:00.000Z',
-  },
-  {
-    id: 'ad_02',
-    resellerId: 'res_02',
-    resellerName: 'Shakil Ahmed',
-    date: '2026-08-19',
-    platform: 'Facebook / Meta Ads',
-    amount: 400,
-    notes: 'Smart Watch Ultra carousel ads Chittagong & Sylhet',
-    createdAt: '2026-08-19T20:00:00.000Z',
-  },
-  {
-    id: 'ad_03',
-    resellerId: 'res_03',
-    resellerName: 'Nusrat Jahan',
-    date: '2026-08-18',
-    platform: 'TikTok Ads',
-    amount: 300,
-    notes: 'Leather wallet gift combo video ads',
-    createdAt: '2026-08-18T20:00:00.000Z',
-  },
-  {
-    id: 'ad_04',
-    resellerId: 'res_01',
-    resellerName: 'Tanvir Rahman',
-    date: '2026-08-18',
-    platform: 'Facebook / Meta Ads',
-    amount: 450,
-    notes: 'Gaming keyboard & GaN charger lead campaign',
-    createdAt: '2026-08-18T20:00:00.000Z',
-  },
-  {
-    id: 'ad_05',
-    resellerId: 'res_04',
-    resellerName: 'Sadia Islam',
-    date: '2026-08-17',
-    platform: 'Facebook / Meta Ads',
-    amount: 350,
-    notes: 'Charger & Earbuds conversion ads',
-    createdAt: '2026-08-17T20:00:00.000Z',
-  },
-  {
-    id: 'ad_06',
-    resellerId: 'res_05',
-    resellerName: 'Arafat Hossain',
-    date: '2026-08-17',
-    platform: 'Google Ads',
-    amount: 280,
-    notes: 'Search keyword intent ads',
-    createdAt: '2026-08-17T20:00:00.000Z',
-  },
-  {
-    id: 'ad_07',
-    resellerId: 'res_01',
-    resellerName: 'Tanvir Rahman',
-    date: '2026-08-16',
-    platform: 'Facebook / Meta Ads',
-    amount: 380,
-    notes: 'Smart watch ultra retargeting',
-    createdAt: '2026-08-16T20:00:00.000Z',
-  },
-  {
-    id: 'ad_08',
-    resellerId: 'res_02',
-    resellerName: 'Shakil Ahmed',
-    date: '2026-08-16',
-    platform: 'Facebook / Meta Ads',
-    amount: 320,
-    notes: 'Leather wallet combo Chittagong region',
-    createdAt: '2026-08-16T20:00:00.000Z',
-  },
-  {
-    id: 'ad_09',
-    resellerId: 'res_03',
-    resellerName: 'Nusrat Jahan',
-    date: '2026-08-15',
-    platform: 'TikTok Ads',
-    amount: 250,
-    notes: 'Earbuds pro viral audio showcase',
-    createdAt: '2026-08-15T20:00:00.000Z',
-  },
-  {
-    id: 'ad_10',
-    resellerId: 'res_01',
-    resellerName: 'Tanvir Rahman',
-    date: '2026-08-15',
-    platform: 'Facebook / Meta Ads',
-    amount: 420,
-    notes: 'Gaming keyboard enthusiast interest audience',
-    createdAt: '2026-08-15T20:00:00.000Z',
-  },
-];
+const INITIAL_AD_SPENDS: AdSpendEntry[] = [];
 
-const INITIAL_DAILY_WORKS: DailyWork[] = [
-  {
-    id: 'work_today_01',
-    resellerId: 'res_01',
-    resellerName: 'Tanvir Rahman',
-    workDate: '2026-08-20',
-    startTime: '09:30',
-    endTime: '18:00',
-    totalHours: 8.5,
-    ordersGenerated: 5,
-    adSpend: 420,
-    notes: 'Dhaka customer inbox and live order confirmations.',
-    createdAt: '2026-08-20T18:00:00.000Z',
-  },
-  {
-    id: 'work_today_02',
-    resellerId: 'res_04',
-    resellerName: 'Sadia Islam',
-    workDate: '2026-08-20',
-    startTime: '10:00',
-    endTime: '17:30',
-    totalHours: 7.5,
-    ordersGenerated: 3,
-    adSpend: 320,
-    notes: 'Customer follow-up and courier dispatch processing.',
-    createdAt: '2026-08-20T17:30:00.000Z',
-  },
-  {
-    id: 'work_01',
-    resellerId: 'res_01',
-    resellerName: 'Tanvir Rahman',
-    workDate: '2026-08-19',
-    startTime: '10:00',
-    endTime: '18:30',
-    totalHours: 8.5,
-    ordersGenerated: 4,
-    adSpend: 350,
-    notes: 'Active customer chats and messenger follow-ups.',
-    createdAt: '2026-08-19T18:30:00.000Z',
-  },
-  {
-    id: 'work_02',
-    resellerId: 'res_02',
-    resellerName: 'Shakil Ahmed',
-    workDate: '2026-08-19',
-    startTime: '11:00',
-    endTime: '19:00',
-    totalHours: 8,
-    ordersGenerated: 3,
-    adSpend: 400,
-    notes: 'Chittagong order confirmation calls.',
-    createdAt: '2026-08-19T19:00:00.000Z',
-  },
-  {
-    id: 'work_03',
-    resellerId: 'res_03',
-    resellerName: 'Nusrat Jahan',
-    workDate: '2026-08-18',
-    startTime: '09:30',
-    endTime: '17:30',
-    totalHours: 8,
-    ordersGenerated: 3,
-    adSpend: 300,
-    notes: 'TikTok video engagement monitoring and DM replies.',
-    createdAt: '2026-08-18T17:30:00.000Z',
-  },
-  {
-    id: 'work_04',
-    resellerId: 'res_01',
-    resellerName: 'Tanvir Rahman',
-    workDate: '2026-08-18',
-    startTime: '10:00',
-    endTime: '18:00',
-    totalHours: 8,
-    ordersGenerated: 4,
-    adSpend: 450,
-    notes: 'Handled Dhaka city express delivery orders.',
-    createdAt: '2026-08-18T18:00:00.000Z',
-  },
-  {
-    id: 'work_05',
-    resellerId: 'res_04',
-    resellerName: 'Sadia Islam',
-    workDate: '2026-08-17',
-    startTime: '10:30',
-    endTime: '18:30',
-    totalHours: 8,
-    ordersGenerated: 3,
-    adSpend: 350,
-    notes: 'Customer support and courier address verifications.',
-    createdAt: '2026-08-17T18:30:00.000Z',
-  },
-  {
-    id: 'work_06',
-    resellerId: 'res_05',
-    resellerName: 'Arafat Hossain',
-    workDate: '2026-08-17',
-    startTime: '11:00',
-    endTime: '17:00',
-    totalHours: 6,
-    ordersGenerated: 2,
-    adSpend: 280,
-    notes: 'Follow-up calls with repeat buyers.',
-    createdAt: '2026-08-17T17:00:00.000Z',
-  },
-];
+const INITIAL_DAILY_WORKS: DailyWork[] = [];
 
 let isInitialized = false;
 
+const DEMO_RESELLER_IDS = ['res_01', 'res_02', 'res_03', 'res_04', 'res_05'];
+const DEMO_RESELLER_NAMES = ['Tanvir Rahman', 'Shakil Ahmed', 'Nusrat Jahan', 'Sadia Islam', 'Arafat Hossain'];
+
 /**
- * Ensures Firestore has initial catalog, resellers, orders, ad spend & daily work seeded on cloud setup
+ * Permanently purges all demo customer orders, demo resellers, demo ad spends, and demo work shift logs from Firestore
  */
-export async function ensureFirestoreSeeded(force: boolean = false) {
-  if (isInitialized && !force) return;
+export async function purgeAllDemoDataFromFirestore(): Promise<{ deletedOrders: number; deletedResellers: number }> {
+  let deletedOrders = 0;
+  let deletedResellers = 0;
   try {
-    const productsRef = collection(db, 'products');
-    const prodSnap = await getDocs(productsRef);
-    if (prodSnap.empty || force) {
-      console.log('⚡ Seeding initial products to Cloud Firestore...');
-      const batch = writeBatch(db);
-      for (const p of INITIAL_PRODUCTS) {
-        batch.set(doc(db, 'products', p.id), sanitizeForFirestore(p), { merge: true });
+    // 1. Purge demo orders
+    const ordersRef = collection(db, 'orders');
+    const orderSnap = await getDocs(ordersRef);
+    const orderBatch = writeBatch(db);
+    let orderBatchCount = 0;
+
+    orderSnap.forEach((docSnap) => {
+      const data = docSnap.data() as Order;
+      const isDemo =
+        DEMO_RESELLER_IDS.includes(data.resellerId) ||
+        DEMO_RESELLER_NAMES.includes(data.resellerName) ||
+        docSnap.id.startsWith('ORD-2026081') ||
+        docSnap.id.startsWith('ORD-20260820-1011') ||
+        docSnap.id.startsWith('ORD-20260820-2022') ||
+        data.customerName === 'Kazi Farhan' ||
+        data.customerName === 'Arif Chowdhury' ||
+        data.customerName === 'Sultana Begum' ||
+        data.customerName === 'Mahmudul Hasan' ||
+        data.customerName === 'Tahmina Akter' ||
+        data.customerName === 'Mehedi Hasan' ||
+        data.customerName === 'Kamrul Islam' ||
+        data.customerName === 'Anowar Hossain' ||
+        data.customerName === 'Jannatul Ferdous' ||
+        data.customerName === 'Shakawat Ali' ||
+        data.customerName === 'Nasrin Sultana' ||
+        data.customerName === 'Zubair Hossain' ||
+        data.customerName === 'Shahinur Rahman' ||
+        data.customerName === 'Rashedul Karim' ||
+        data.customerName === 'Imran Nazir' ||
+        data.customerName === 'Fahim Shahriar' ||
+        data.customerName === 'Nusrat Parvin';
+
+      if (isDemo) {
+        orderBatch.delete(docSnap.ref);
+        orderBatchCount++;
+        deletedOrders++;
       }
-      await batch.commit();
+    });
+
+    if (orderBatchCount > 0) {
+      await orderBatch.commit();
     }
 
+    // 2. Purge demo resellers
     const resellersRef = collection(db, 'resellers');
     const resSnap = await getDocs(resellersRef);
-    if (resSnap.empty || force) {
-      console.log('⚡ Seeding initial resellers to Cloud Firestore...');
-      const batch = writeBatch(db);
-      for (const r of INITIAL_RESELLERS) {
-        batch.set(doc(db, 'resellers', r.id), sanitizeForFirestore(r), { merge: true });
+    const resBatch = writeBatch(db);
+    let resBatchCount = 0;
+
+    resSnap.forEach((docSnap) => {
+      const data = docSnap.data() as Reseller;
+      const isDemo =
+        DEMO_RESELLER_IDS.includes(docSnap.id) ||
+        DEMO_RESELLER_IDS.includes(data.id) ||
+        DEMO_RESELLER_NAMES.includes(data.name) ||
+        data.email?.includes('reseller@example.com') ||
+        data.phone === '01711223344' ||
+        data.phone === '01822334455' ||
+        data.phone === '01933445566' ||
+        data.phone === '01644556677' ||
+        data.phone === '01555667788';
+
+      if (isDemo) {
+        resBatch.delete(docSnap.ref);
+        resBatchCount++;
+        deletedResellers++;
       }
-      await batch.commit();
+    });
+
+    if (resBatchCount > 0) {
+      await resBatch.commit();
     }
 
-    const ordersRef = collection(db, 'orders');
-    const ordSnap = await getDocs(ordersRef);
-    if (ordSnap.empty || force) {
-      console.log('⚡ Seeding initial sales orders to Cloud Firestore...');
-      const batch = writeBatch(db);
-      for (const o of INITIAL_ORDERS) {
-        batch.set(doc(db, 'orders', o.id), sanitizeForFirestore(o), { merge: true });
+    // 3. Purge demo ad spends
+    const adRef = collection(db, 'ad_spends');
+    const adSnap = await getDocs(adRef);
+    const adBatch = writeBatch(db);
+    let adBatchCount = 0;
+
+    adSnap.forEach((docSnap) => {
+      const data = docSnap.data() as AdSpendEntry;
+      if (
+        DEMO_RESELLER_IDS.includes(data.resellerId) ||
+        DEMO_RESELLER_NAMES.includes(data.resellerName) ||
+        docSnap.id.startsWith('ad_')
+      ) {
+        adBatch.delete(docSnap.ref);
+        adBatchCount++;
       }
-      await batch.commit();
+    });
+
+    if (adBatchCount > 0) {
+      await adBatch.commit();
     }
 
-    const adSpendsRef = collection(db, 'ad_spends');
-    const adSnap = await getDocs(adSpendsRef);
-    if (adSnap.empty || force) {
-      console.log('⚡ Seeding initial ad spends to Cloud Firestore...');
-      const batch = writeBatch(db);
-      for (const a of INITIAL_AD_SPENDS) {
-        batch.set(doc(db, 'ad_spends', a.id), sanitizeForFirestore(a), { merge: true });
-      }
-      await batch.commit();
-    }
+    // 4. Purge demo daily works
+    const workRef = collection(db, 'daily_work');
+    const workSnap = await getDocs(workRef);
+    const workBatch = writeBatch(db);
+    let workBatchCount = 0;
 
-    const dailyWorkRef = collection(db, 'daily_work');
-    const workSnap = await getDocs(dailyWorkRef);
-    if (workSnap.empty || force) {
-      console.log('⚡ Seeding initial daily works to Cloud Firestore...');
-      const batch = writeBatch(db);
-      for (const w of INITIAL_DAILY_WORKS) {
-        batch.set(doc(db, 'daily_work', w.id), sanitizeForFirestore(w), { merge: true });
+    workSnap.forEach((docSnap) => {
+      const data = docSnap.data() as DailyWork;
+      if (
+        DEMO_RESELLER_IDS.includes(data.resellerId) ||
+        DEMO_RESELLER_NAMES.includes(data.resellerName) ||
+        docSnap.id.startsWith('work_')
+      ) {
+        workBatch.delete(docSnap.ref);
+        workBatchCount++;
       }
-      await batch.commit();
-    }
+    });
 
-    isInitialized = true;
+    if (workBatchCount > 0) {
+      await workBatch.commit();
+    }
   } catch (err) {
-    console.warn('Firestore seeding notice:', err);
-    isInitialized = false;
+    console.warn('Error purging demo data from Firestore:', err);
+  }
+
+  return { deletedOrders, deletedResellers };
+}
+
+/**
+ * Ensures Firestore has initial product catalog on setup and ensures all demo orders/resellers are purged
+ */
+export async function ensureFirestoreSeeded(force: boolean = false) {
+  try {
+    const metaRef = doc(db, 'system_metadata', 'bootstrap');
+    const metaSnap = await getDoc(metaRef);
+
+    // If already bootstrapped, ensure demo purge runs once
+    if (metaSnap.exists() && !force) {
+      // Purge any lingering demo data in background
+      await purgeAllDemoDataFromFirestore();
+      return;
+    }
+
+    // Perform initial seed for products only
+    console.log('⚡ Initializing Firestore cloud database collections...');
+    const batch = writeBatch(db);
+
+    for (const p of INITIAL_PRODUCTS) {
+      batch.set(doc(db, 'products', p.id), sanitizeForFirestore(p), { merge: true });
+    }
+
+    // Mark persistent bootstrap record
+    batch.set(metaRef, {
+      bootstrapped: true,
+      lastSeededAt: new Date().toISOString(),
+    });
+
+    await batch.commit();
+
+    // Clean any demo data
+    await purgeAllDemoDataFromFirestore();
+  } catch (err) {
+    console.warn('Firestore initialization notice:', err);
   }
 }
 
 /**
- * Explicit function to restore/reseed all sales data into Firestore
+ * Explicit function to restore/reseed sales data into Firestore only when Admin explicitly requests
  */
 export async function seedInitialSalesDataToFirestore(force: boolean = true): Promise<boolean> {
   await ensureFirestoreSeeded(force);
@@ -1111,7 +389,6 @@ export async function updateFirestoreAdminCredentials(newUsername: string, newPa
 // ============================================================================
 
 export async function getFirestoreProducts(): Promise<Product[]> {
-  await ensureFirestoreSeeded();
   const snap = await getDocs(collection(db, 'products'));
   const products: Product[] = [];
   snap.forEach((doc) => {
@@ -1240,7 +517,6 @@ export async function setDefaultFirestoreProduct(id: string): Promise<Product> {
 // ============================================================================
 
 export async function getFirestoreResellers(activeOnly: boolean = false): Promise<Reseller[]> {
-  await ensureFirestoreSeeded();
   const snap = await getDocs(collection(db, 'resellers'));
   let resellers: Reseller[] = [];
   snap.forEach((doc) => {
@@ -1353,13 +629,7 @@ export async function getFirestoreOrders(filters?: {
   startDate?: string;
   endDate?: string;
 }): Promise<Order[]> {
-  await ensureFirestoreSeeded();
-  let snap = await getDocs(collection(db, 'orders'));
-  if (snap.empty) {
-    await ensureFirestoreSeeded(true);
-    snap = await getDocs(collection(db, 'orders'));
-  }
-
+  const snap = await getDocs(collection(db, 'orders'));
   let orders: Order[] = [];
   snap.forEach((doc) => {
     orders.push(doc.data() as Order);
@@ -1517,13 +787,7 @@ export async function getFirestoreAdSpends(filters?: {
   endDate?: string;
   platform?: string;
 }): Promise<AdSpendEntry[]> {
-  await ensureFirestoreSeeded();
-  let snap = await getDocs(collection(db, 'ad_spends'));
-  if (snap.empty) {
-    await ensureFirestoreSeeded(true);
-    snap = await getDocs(collection(db, 'ad_spends'));
-  }
-
+  const snap = await getDocs(collection(db, 'ad_spends'));
   let spends: AdSpendEntry[] = [];
   snap.forEach((doc) => {
     spends.push(doc.data() as AdSpendEntry);
@@ -1608,13 +872,7 @@ export async function getFirestoreDailyWorks(filters?: {
   startDate?: string;
   endDate?: string;
 }): Promise<DailyWork[]> {
-  await ensureFirestoreSeeded();
-  let snap = await getDocs(collection(db, 'daily_work'));
-  if (snap.empty) {
-    await ensureFirestoreSeeded(true);
-    snap = await getDocs(collection(db, 'daily_work'));
-  }
-
+  const snap = await getDocs(collection(db, 'daily_work'));
   let works: DailyWork[] = [];
   snap.forEach((doc) => {
     works.push(doc.data() as DailyWork);

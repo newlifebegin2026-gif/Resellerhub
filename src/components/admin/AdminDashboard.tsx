@@ -196,12 +196,14 @@ export const AdminDashboard: React.FC = () => {
   };
 
   const handleDeleteReseller = async (id: string, name: string) => {
-    if (!window.confirm(`Are you sure you want to delete reseller "${name}"?`)) return;
+    if (!window.confirm(`Are you sure you want to delete reseller "${name}"? This will permanently delete it from Firebase.`)) return;
     try {
+      setResellers((prev) => prev.filter((r) => r.id !== id));
       await api.deleteReseller(id);
-      loadAllData();
+      await loadAllData();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete reseller.');
+      alert(err.message || 'Failed to delete reseller from Firebase.');
+      await loadAllData();
     }
   };
 
@@ -216,11 +218,12 @@ export const AdminDashboard: React.FC = () => {
   // --- Order Actions ---
   const handleUpdateOrderStatus = async (orderId: string, newStatus: Order['status']) => {
     try {
-      await api.updateOrder(orderId, { status: newStatus });
       setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o)));
-      loadAllData();
+      await api.updateOrder(orderId, { status: newStatus });
+      await loadAllData();
     } catch (err: any) {
       alert(err.message || 'Failed to update order status.');
+      await loadAllData();
     }
   };
 
@@ -230,19 +233,21 @@ export const AdminDashboard: React.FC = () => {
     try {
       await api.updateOrder(editingOrder.id, editingOrder);
       setEditingOrder(null);
-      loadAllData();
+      await loadAllData();
     } catch (err: any) {
       alert(err.message || 'Failed to save order modifications.');
     }
   };
 
   const handleDeleteOrder = async (orderId: string) => {
-    if (!window.confirm(`Are you sure you want to delete order #${orderId}?`)) return;
+    if (!window.confirm(`Are you sure you want to delete order #${orderId}? This will permanently delete it from Firebase.`)) return;
     try {
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
       await api.deleteOrder(orderId);
-      loadAllData();
+      await loadAllData();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete order.');
+      alert(err.message || 'Failed to delete order from Firebase.');
+      await loadAllData();
     }
   };
 
@@ -253,31 +258,33 @@ export const AdminDashboard: React.FC = () => {
     try {
       await api.updateDailyWork(editingDailyWork.id, editingDailyWork);
       setEditingDailyWork(null);
-      loadAllData();
+      await loadAllData();
     } catch (err: any) {
       alert(err.message || 'Failed to update daily work record.');
     }
   };
 
   const handleDeleteDailyWork = async (workId: string) => {
-    if (!window.confirm(`Delete this work shift entry?`)) return;
+    if (!window.confirm(`Delete this work shift entry? This will permanently delete it from Firebase.`)) return;
     try {
+      setDailyWorks((prev) => prev.filter((w) => w.id !== workId));
       await api.deleteDailyWork(workId);
-      loadAllData();
+      await loadAllData();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete daily work entry.');
+      alert(err.message || 'Failed to delete daily work entry from Firebase.');
+      await loadAllData();
     }
   };
 
-  const handleRestoreSalesData = async () => {
-    if (!window.confirm('Restore initial sales orders, ad spends, and daily shift records to Cloud Firestore?')) return;
+  const handlePurgeDemoData = async () => {
+    if (!window.confirm('Delete all demo customer orders, demo resellers, and demo shift records from Firebase permanently?')) return;
     try {
       setRefreshing(true);
-      await api.seedSalesData(true);
+      const res = await api.purgeDemoData();
       await loadAllData();
-      alert('All sales data successfully restored in Cloud Firestore!');
+      alert(`Purge completed: ${res.deletedOrders} demo orders and ${res.deletedResellers} demo resellers permanently removed from Firebase.`);
     } catch (err: any) {
-      alert(err.message || 'Failed to restore sales data.');
+      alert(err.message || 'Failed to purge demo data.');
     } finally {
       setRefreshing(false);
     }
@@ -363,14 +370,14 @@ export const AdminDashboard: React.FC = () => {
 
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            id="btn-restore-sales-data"
-            onClick={handleRestoreSalesData}
+            id="btn-purge-demo-data"
+            onClick={handlePurgeDemoData}
             disabled={refreshing}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-700 shadow-2xs transition-all cursor-pointer"
-            title="Restore and seed sales orders, ad spends, and daily logs"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-rose-50 border border-rose-200 hover:bg-rose-100 text-rose-700 shadow-2xs transition-all cursor-pointer"
+            title="Permanently remove all demo customer orders and demo resellers from Firebase"
           >
-            <Database className="w-3.5 h-3.5" />
-            <span>Restore Sales Data</span>
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Purge Demo Records</span>
           </button>
 
           <button

@@ -26,6 +26,7 @@ import {
   verifyFirestoreAdminLogin,
   updateFirestoreAdminCredentials,
   seedInitialSalesDataToFirestore,
+  purgeAllDemoDataFromFirestore,
 } from './firebase';
 import rawFirebaseConfig from '../../firebase-applet-config.json';
 
@@ -561,5 +562,9 @@ export const api = {
 
   async seedSalesData(force: boolean = true): Promise<boolean> {
     return await seedInitialSalesDataToFirestore(force);
+  },
+
+  async purgeDemoData(): Promise<{ deletedOrders: number; deletedResellers: number }> {
+    return await purgeAllDemoDataFromFirestore();
   },
 };
