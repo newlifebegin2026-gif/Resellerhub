@@ -72,7 +72,14 @@ export const ResellerLogin: React.FC<ResellerLoginProps> = ({ onLoginSuccess, on
       };
       onLoginSuccess(session);
     } catch (err: any) {
-      setError(err.message || 'Google sign in failed');
+      console.error('Google Sign In error:', err);
+      const errMsg = err?.message || String(err);
+      if (errMsg.includes('auth/unauthorized-domain')) {
+        const currentHostname = typeof window !== 'undefined' ? window.location.hostname : 'your-domain.vercel.app';
+        setError(`Unauthorized Domain: Firebase requires "${currentHostname}" to be added in Firebase Console > Authentication > Settings > Authorized Domains.`);
+      } else {
+        setError(errMsg || 'Google sign in failed');
+      }
     } finally {
       setIsGoogleLoading(false);
     }

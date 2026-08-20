@@ -24,10 +24,21 @@ import {
   DocumentData,
 } from 'firebase/firestore';
 import { Reseller, Order, DailyWork, Product, DashboardStats, GoogleUser } from '../types';
-import firebaseConfig from '../../firebase-applet-config.json';
+import rawFirebaseConfig from '../../firebase-applet-config.json';
+
+// Support both embedded firebase-applet-config.json and optional Vercel / Vite env variables
+export const activeFirebaseConfig = {
+  projectId: (import.meta as any).env?.VITE_FIREBASE_PROJECT_ID || rawFirebaseConfig.projectId,
+  appId: (import.meta as any).env?.VITE_FIREBASE_APP_ID || rawFirebaseConfig.appId,
+  apiKey: (import.meta as any).env?.VITE_FIREBASE_API_KEY || rawFirebaseConfig.apiKey,
+  authDomain: (import.meta as any).env?.VITE_FIREBASE_AUTH_DOMAIN || rawFirebaseConfig.authDomain,
+  firestoreDatabaseId: (import.meta as any).env?.VITE_FIREBASE_FIRESTORE_DATABASE_ID || rawFirebaseConfig.firestoreDatabaseId,
+  storageBucket: (import.meta as any).env?.VITE_FIREBASE_STORAGE_BUCKET || rawFirebaseConfig.storageBucket,
+  messagingSenderId: (import.meta as any).env?.VITE_FIREBASE_MESSAGING_SENDER_ID || rawFirebaseConfig.messagingSenderId,
+};
 
 // Initialize Firebase App
-export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+export const app = !getApps().length ? initializeApp(activeFirebaseConfig) : getApp();
 
 // Auth Instance
 export const auth = getAuth(app);
@@ -37,8 +48,8 @@ googleProvider.setCustomParameters({
 });
 
 // Firestore Instance (Pass databaseId if specified in config)
-export const db = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+export const db = activeFirebaseConfig.firestoreDatabaseId
+  ? getFirestore(app, activeFirebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
 
 // Initial Seed Data if Cloud Firestore is empty
