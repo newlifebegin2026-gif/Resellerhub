@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import bcrypt from 'bcryptjs';
 import mysql, { Pool } from 'mysql2/promise';
-import { Reseller, Order, DailyWork, DashboardStats, ResellerPerformance, DatabaseInfo, Product } from '../src/types';
+import { Reseller, Order, DailyWork, DashboardStats, ResellerPerformance, ResellerProfitSummary, DatabaseInfo, Product } from '../src/types';
 
 // Admin Default Credentials
 export const DEFAULT_ADMIN = {
@@ -1181,7 +1181,57 @@ export async function getDashboardStats(filters?: { startDate?: string; endDate?
   const overallAOV = totalOrders > 0 ? Math.round(totalSales / totalOrders) : 0;
   const overallROAS = totalAdSpend > 0 ? Math.round((totalSales / totalAdSpend) * 100) / 100 : 0;
 
+  const directOrdersCount = orders.filter((o) => o.orderType === 'Direct Order').length;
+  const followUpOrdersCount = orders.filter((o) => o.orderType === 'Follow-up Order').length;
+  const totalProductsSold = orders.reduce((sum, o) => {
+    if (o.items && o.items.length > 0) {
+      return sum + o.items.reduce((iSum, it) => iSum + (it.quantity || 1), 0);
+    }
+    return sum + (o.quantity || 1);
+  }, 0);
+
+  const totalProfitBeforeAdCost = orders.reduce((sum, o) => {
+    return sum + (o.profitBeforeAdCost !== undefined ? o.profitBeforeAdCost : Math.round((o.orderAmount || 0) * 0.35));
+  }, 0);
+
+  const estimatedProfit = totalProfitBeforeAdCost - totalAdSpend;
+
   // Build Reseller-Wise Performance
+  const resellerProfits = resellers.map((r) => {
+    const rOrders = orders.filter((o) => o.resellerId === r.id);
+    const rWorks = dailyWorks.filter((w) => w.resellerId === r.id);
+
+    const rTotalOrders = rOrders.length;
+    const rDirect = rOrders.filter((o) => o.orderType === 'Direct Order').length;
+    const rFollowUp = rOrders.filter((o) => o.orderType === 'Follow-up Order').length;
+    const rProducts = rOrders.reduce((sum, o) => {
+      if (o.items && o.items.length > 0) {
+        return sum + o.items.reduce((iSum, it) => iSum + (it.quantity || 1), 0);
+      }
+      return sum + (o.quantity || 1);
+    }, 0);
+    const rTotalRevenue = rOrders.reduce((sum, o) => sum + (o.orderAmount || 0), 0);
+    const rTotalAdSpend = rWorks.reduce((sum, w) => sum + (w.adSpend || 0), 0);
+    const rProfitBeforeAd = rOrders.reduce((sum, o) => {
+      return sum + (o.profitBeforeAdCost !== undefined ? o.profitBeforeAdCost : Math.round((o.orderAmount || 0) * 0.35));
+    }, 0);
+
+    return {
+      resellerId: r.id,
+      resellerName: r.name,
+      status: r.status,
+      phone: r.phone,
+      totalOrders: rTotalOrders,
+      totalProductsSold: rProducts,
+      directOrders: rDirect,
+      followUpOrders: rFollowUp,
+      totalRevenue: rTotalRevenue,
+      profitBeforeAdCost: rProfitBeforeAd,
+      totalAdSpend: rTotalAdSpend,
+      estimatedProfit: rProfitBeforeAd - rTotalAdSpend,
+    };
+  });
+
   const resellerPerformance: ResellerPerformance[] = resellers.map((r) => {
     const rOrders = orders.filter((o) => o.resellerId === r.id);
     const rWorks = dailyWorks.filter((w) => w.resellerId === r.id);
@@ -1190,6 +1240,9 @@ export async function getDashboardStats(filters?: { startDate?: string; endDate?
     const rTotalSales = rOrders.reduce((sum, o) => sum + (o.orderAmount || 0), 0);
     const rTotalAdSpend = rWorks.reduce((sum, w) => sum + (w.adSpend || 0), 0);
     const rTotalHours = rWorks.reduce((sum, w) => sum + (w.totalHours || 0), 0);
+    const rProfitBeforeAd = rOrders.reduce((sum, o) => {
+      return sum + (o.profitBeforeAdCost !== undefined ? o.profitBeforeAdCost : Math.round((o.orderAmount || 0) * 0.35));
+    }, 0);
 
     const averageOrderValue = rTotalOrders > 0 ? Math.round(rTotalSales / rTotalOrders) : 0;
     const roas = rTotalAdSpend > 0 ? Math.round((rTotalSales / rTotalAdSpend) * 100) / 100 : 0;
@@ -1207,6 +1260,8 @@ export async function getDashboardStats(filters?: { startDate?: string; endDate?
       averageOrderValue,
       roas,
       costPerOrder,
+      profitBeforeAdCost: rProfitBeforeAd,
+      estimatedProfit: rProfitBeforeAd - rTotalAdSpend,
     };
   });
 
@@ -1248,6 +1303,12 @@ export async function getDashboardStats(filters?: { startDate?: string; endDate?
     totalWorkingHours: Math.round(totalWorkingHours * 10) / 10,
     overallAOV,
     overallROAS,
+    totalProfitBeforeAdCost,
+    estimatedProfit,
+    totalProductsSold,
+    directOrdersCount,
+    followUpOrdersCount,
+    resellerProfits,
     salesByDate,
     resellerPerformance: resellerPerformance.sort((a, b) => b.totalSales - a.totalSales),
     recentOrders: orders.slice(0, 10),

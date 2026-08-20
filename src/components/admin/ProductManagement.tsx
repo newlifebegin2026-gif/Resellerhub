@@ -14,6 +14,10 @@ import {
   Sparkles,
   Info,
   CheckCircle2,
+  TrendingUp,
+  DollarSign,
+  Truck,
+  Box,
 } from 'lucide-react';
 
 export const ProductManagement: React.FC = () => {
@@ -26,6 +30,9 @@ export const ProductManagement: React.FC = () => {
   // Form State
   const [name, setName] = useState('');
   const [price, setPrice] = useState<number | ''>('');
+  const [productCost, setProductCost] = useState<number | ''>('');
+  const [packagingCost, setPackagingCost] = useState<number | ''>(30);
+  const [deliveryCost, setDeliveryCost] = useState<number | ''>(60);
   const [description, setDescription] = useState('');
   const [isDefault, setIsDefault] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -57,6 +64,9 @@ export const ProductManagement: React.FC = () => {
     setEditingProduct(null);
     setName('');
     setPrice('');
+    setProductCost('');
+    setPackagingCost(30);
+    setDeliveryCost(60);
     setDescription('');
     setIsDefault(products.length === 0);
     setFormError(null);
@@ -67,11 +77,21 @@ export const ProductManagement: React.FC = () => {
     setEditingProduct(p);
     setName(p.name);
     setPrice(p.price);
+    setProductCost(p.productCost !== undefined ? p.productCost : Math.round(p.price * 0.5));
+    setPackagingCost(p.packagingCost !== undefined ? p.packagingCost : 30);
+    setDeliveryCost(p.deliveryCost !== undefined ? p.deliveryCost : 60);
     setDescription(p.description || '');
     setIsDefault(p.isDefault);
     setFormError(null);
     setIsModalOpen(true);
   };
+
+  // Live profit calculation for modal form
+  const numSellingPrice = Number(price) || 0;
+  const numProductCost = Number(productCost) || 0;
+  const numPackagingCost = Number(packagingCost) || 0;
+  const numDeliveryCost = Number(deliveryCost) || 0;
+  const calculatedProfitBeforeAdCost = numSellingPrice - numProductCost - numPackagingCost - numDeliveryCost;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +100,7 @@ export const ProductManagement: React.FC = () => {
       return;
     }
     if (price === '' || Number(price) < 0) {
-      setFormError('Please enter a valid price in BDT.');
+      setFormError('Please enter a valid selling price in BDT.');
       return;
     }
 
@@ -88,21 +108,22 @@ export const ProductManagement: React.FC = () => {
     setFormError(null);
 
     try {
+      const payload = {
+        name: name.trim(),
+        price: Number(price),
+        productCost: Number(productCost) || 0,
+        packagingCost: Number(packagingCost) || 0,
+        deliveryCost: Number(deliveryCost) || 0,
+        profitBeforeAdCost: calculatedProfitBeforeAdCost,
+        description: description.trim(),
+        isDefault,
+      };
+
       if (editingProduct) {
-        await api.updateProduct(editingProduct.id, {
-          name: name.trim(),
-          price: Number(price),
-          description: description.trim(),
-          isDefault,
-        });
+        await api.updateProduct(editingProduct.id, payload);
         showToast(`Product "${name.trim()}" updated successfully!`);
       } else {
-        await api.createProduct({
-          name: name.trim(),
-          price: Number(price),
-          description: description.trim(),
-          isDefault,
-        });
+        await api.createProduct(payload);
         showToast(`New product "${name.trim()}" created successfully!`);
       }
       setIsModalOpen(false);
@@ -152,9 +173,9 @@ export const ProductManagement: React.FC = () => {
               <Tag className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Product Catalog & Default Selection</h2>
+              <h2 className="text-xl font-bold text-slate-900">Product Revenue & Profit Configuration</h2>
               <p className="text-xs text-slate-500">
-                Manage products available in the reseller order dropdown and assign the primary default product.
+                Configure selling price, sourcing cost, packaging & delivery cost to auto-calculate profit margins before ad costs.
               </p>
             </div>
           </div>
@@ -188,12 +209,15 @@ export const ProductManagement: React.FC = () => {
               <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider bg-amber-100 px-2 py-0.5 rounded-md">
                 Active Default Product
               </span>
-              <span className="text-xs text-slate-500">(Auto-selected for resellers on order entry)</span>
+              <span className="text-xs text-slate-500">(Auto-selected on reseller order form)</span>
             </div>
             {defaultProduct ? (
               <div className="mt-1">
                 <span className="text-sm font-bold text-slate-900">{defaultProduct.name}</span>
-                <span className="text-sm font-semibold text-indigo-600 ml-2">৳{defaultProduct.price.toLocaleString('en-IN')}</span>
+                <span className="text-sm font-bold text-indigo-600 ml-2">৳{defaultProduct.price.toLocaleString('en-IN')}</span>
+                <span className="text-xs font-semibold text-emerald-700 ml-2 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  Profit Before Ad: ৳{(defaultProduct.profitBeforeAdCost ?? Math.round(defaultProduct.price * 0.35)).toLocaleString()}
+                </span>
                 {defaultProduct.description && (
                   <p className="text-xs text-slate-600 mt-0.5">{defaultProduct.description}</p>
                 )}
@@ -206,7 +230,7 @@ export const ProductManagement: React.FC = () => {
 
         <div className="text-xs text-slate-500 max-w-xs flex items-center gap-1.5">
           <Info className="w-4 h-4 text-slate-400 shrink-0" />
-          <span>When resellers open the order form, this product is auto-selected by default unless they pick another.</span>
+          <span>Formula: <strong>Profit = Price - Product Cost - Packaging - Delivery</strong></span>
         </div>
       </div>
 
@@ -245,79 +269,101 @@ export const ProductManagement: React.FC = () => {
           </div>
         ) : (
           <div className="divide-y divide-slate-100">
-            {filteredProducts.map((product) => (
-              <div
-                key={product.id}
-                className={`p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 transition hover:bg-slate-50/70 ${
-                  product.isDefault ? 'bg-amber-50/30' : ''
-                }`}
-              >
-                <div className="flex items-start gap-3.5 flex-1 min-w-0">
-                  <button
-                    onClick={() => handleSetDefault(product.id, product.name)}
-                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition ${
-                      product.isDefault
-                        ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-300'
-                        : 'bg-slate-100 text-slate-400 hover:text-amber-500 hover:bg-amber-50'
-                    }`}
-                    title={product.isDefault ? 'Currently default product' : 'Click to make default product'}
-                  >
-                    <Star className={`w-4 h-4 ${product.isDefault ? 'fill-white' : ''}`} />
-                  </button>
+            {filteredProducts.map((product) => {
+              const pCost = product.productCost ?? Math.round(product.price * 0.5);
+              const packCost = product.packagingCost ?? 30;
+              const delCost = product.deliveryCost ?? 60;
+              const profitBefore = product.profitBeforeAdCost ?? (product.price - pCost - packCost - delCost);
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h4 className="text-sm font-bold text-slate-900">{product.name}</h4>
-                      {product.isDefault && (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                          <Sparkles className="w-3 h-3 text-amber-600" />
-                          DEFAULT CHOICE
-                        </span>
+              return (
+                <div
+                  key={product.id}
+                  className={`p-4 sm:p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 transition hover:bg-slate-50/70 ${
+                    product.isDefault ? 'bg-amber-50/30' : ''
+                  }`}
+                >
+                  <div className="flex items-start gap-3.5 flex-1 min-w-0">
+                    <button
+                      onClick={() => handleSetDefault(product.id, product.name)}
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition ${
+                        product.isDefault
+                          ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-300'
+                          : 'bg-slate-100 text-slate-400 hover:text-amber-500 hover:bg-amber-50'
+                      }`}
+                      title={product.isDefault ? 'Currently default product' : 'Click to make default product'}
+                    >
+                      <Star className={`w-4 h-4 ${product.isDefault ? 'fill-white' : ''}`} />
+                    </button>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-sm font-bold text-slate-900">{product.name}</h4>
+                        {product.isDefault && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                            <Sparkles className="w-3 h-3 text-amber-600" />
+                            DEFAULT CHOICE
+                          </span>
+                        )}
+                      </div>
+                      {product.description && (
+                        <p className="text-xs text-slate-500 mt-1 line-clamp-2">{product.description}</p>
                       )}
-                    </div>
-                    {product.description && (
-                      <p className="text-xs text-slate-500 mt-1 line-clamp-2">{product.description}</p>
-                    )}
-                    <div className="text-[11px] text-slate-400 mt-1">ID: {product.id}</div>
-                  </div>
-                </div>
 
-                <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
-                  <div className="text-left sm:text-right">
-                    <div className="text-base font-extrabold text-indigo-600">
-                      ৳{product.price.toLocaleString('en-IN')}
+                      {/* Cost Breakdown Pills */}
+                      <div className="flex items-center gap-2 flex-wrap mt-2 text-[11px]">
+                        <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                          Cost: <strong>৳{pCost}</strong>
+                        </span>
+                        <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                          Packaging: <strong>৳{packCost}</strong>
+                        </span>
+                        <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded">
+                          Delivery: <strong>৳{delCost}</strong>
+                        </span>
+                        <span className="bg-emerald-50 text-emerald-800 font-bold px-2 py-0.5 rounded border border-emerald-200">
+                          Profit Margin: ৳{profitBefore.toLocaleString()}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-[10px] text-slate-400">Unit Price</div>
                   </div>
 
-                  <div className="flex items-center gap-1.5">
-                    {!product.isDefault && (
+                  <div className="flex items-center justify-between lg:justify-end gap-4 w-full lg:w-auto border-t lg:border-t-0 pt-3 lg:pt-0 border-slate-100">
+                    <div className="text-left lg:text-right">
+                      <div className="text-base font-extrabold text-indigo-600">
+                        ৳{product.price.toLocaleString('en-IN')}
+                      </div>
+                      <div className="text-[10px] text-slate-400">Selling Price</div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      {!product.isDefault && (
+                        <button
+                          onClick={() => handleSetDefault(product.id, product.name)}
+                          className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold rounded-lg border border-amber-200 transition cursor-pointer"
+                          title="Set as Default Product for Resellers"
+                        >
+                          Make Default
+                        </button>
+                      )}
                       <button
-                        onClick={() => handleSetDefault(product.id, product.name)}
-                        className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold rounded-lg border border-amber-200 transition cursor-pointer"
-                        title="Set as Default Product for Resellers"
+                        onClick={() => handleOpenEdit(product)}
+                        className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
+                        title="Edit Product"
                       >
-                        Make Default
+                        <Edit2 className="w-4 h-4" />
                       </button>
-                    )}
-                    <button
-                      onClick={() => handleOpenEdit(product)}
-                      className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition"
-                      title="Edit Product"
-                    >
-                      <Edit2 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(product.id, product.name)}
-                      className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                      title="Delete Product"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      <button
+                        onClick={() => handleDelete(product.id, product.name)}
+                        className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                        title="Delete Product"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -325,10 +371,10 @@ export const ProductManagement: React.FC = () => {
       {/* Add / Edit Product Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-base font-bold text-slate-900">
-                {editingProduct ? 'Edit Product' : 'Add New Product'}
+                {editingProduct ? 'Edit Product & Cost Settings' : 'Add New Product'}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
@@ -360,19 +406,74 @@ export const ProductManagement: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Price in BDT (৳) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value === '' ? '' : Number(e.target.value))}
-                  placeholder="e.g. 1650"
-                  min="0"
-                  required
-                  className="w-full px-3.5 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:bg-white transition font-mono"
-                />
+              {/* Pricing & Cost Structure Grid */}
+              <div className="grid grid-cols-2 gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Selling Price (৳) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="e.g. 1650"
+                    min="0"
+                    required
+                    className="w-full px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-lg focus:border-indigo-600 font-mono font-bold text-indigo-700"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Product Sourcing Cost (৳)
+                  </label>
+                  <input
+                    type="number"
+                    value={productCost}
+                    onChange={(e) => setProductCost(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="e.g. 850"
+                    min="0"
+                    className="w-full px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-lg focus:border-indigo-600 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Packaging Cost (৳)
+                  </label>
+                  <input
+                    type="number"
+                    value={packagingCost}
+                    onChange={(e) => setPackagingCost(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="30"
+                    min="0"
+                    className="w-full px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-lg focus:border-indigo-600 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Delivery Cost (৳)
+                  </label>
+                  <input
+                    type="number"
+                    value={deliveryCost}
+                    onChange={(e) => setDeliveryCost(e.target.value === '' ? '' : Number(e.target.value))}
+                    placeholder="60"
+                    min="0"
+                    className="w-full px-3 py-1.5 text-sm bg-white border border-slate-300 rounded-lg focus:border-indigo-600 font-mono"
+                  />
+                </div>
+
+                {/* Live Calculated Profit Display */}
+                <div className="col-span-2 pt-2 border-t border-slate-200 flex justify-between items-center text-xs">
+                  <span className="font-semibold text-slate-700">Profit Before Ad Cost:</span>
+                  <span className={`font-mono font-extrabold text-sm ${
+                    calculatedProfitBeforeAdCost >= 0 ? 'text-emerald-700' : 'text-rose-700'
+                  }`}>
+                    ৳{calculatedProfitBeforeAdCost.toLocaleString()}
+                  </span>
+                </div>
               </div>
 
               <div>
@@ -383,7 +484,7 @@ export const ProductManagement: React.FC = () => {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Key specs, warranty, features, color variations..."
-                  rows={3}
+                  rows={2}
                   className="w-full px-3.5 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 focus:bg-white transition"
                 />
               </div>
@@ -399,7 +500,7 @@ export const ProductManagement: React.FC = () => {
                 <label htmlFor="isDefaultCheck" className="text-xs text-slate-800 font-medium cursor-pointer">
                   Set as Default Auto-Selected Product
                   <p className="text-[11px] text-slate-500 font-normal mt-0.5">
-                    Resellers will automatically have this item pre-selected when submitting orders unless they choose a different one.
+                    Auto-selected for resellers on order entry unless they choose another.
                   </p>
                 </label>
               </div>

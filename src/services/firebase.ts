@@ -23,7 +23,7 @@ import {
   onSnapshot,
   DocumentData,
 } from 'firebase/firestore';
-import { Reseller, Order, DailyWork, Product, DashboardStats, GoogleUser } from '../types';
+import { Reseller, Order, DailyWork, Product, DashboardStats, GoogleUser, AdSpendEntry, ResellerProfitSummary, ResellerPerformance, OrderItem, OrganizedCustomerData, OrderType, DeliveryLocationType } from '../types';
 import rawFirebaseConfig from '../../firebase-applet-config.json';
 
 // Support both embedded firebase-applet-config.json and optional Vercel / Vite env variables
@@ -58,6 +58,10 @@ const INITIAL_PRODUCTS: Product[] = [
     id: 'prod_01',
     name: 'Wireless Bluetooth Earbuds Pro (Black Edition)',
     price: 1650,
+    productCost: 850,
+    packagingCost: 35,
+    deliveryCost: 65,
+    profitBeforeAdCost: 700,
     description: 'High bass, ENC noise reduction, 30h battery life.',
     isDefault: true,
     createdAt: '2026-01-01T00:00:00.000Z',
@@ -66,6 +70,10 @@ const INITIAL_PRODUCTS: Product[] = [
     id: 'prod_02',
     name: 'Premium Smart Watch Ultra (AMOLED + Dual Strap)',
     price: 2400,
+    productCost: 1250,
+    packagingCost: 40,
+    deliveryCost: 60,
+    profitBeforeAdCost: 1050,
     description: 'Bluetooth calling, heart rate & sleep tracker, water resistant.',
     isDefault: false,
     createdAt: '2026-01-02T00:00:00.000Z',
@@ -74,6 +82,10 @@ const INITIAL_PRODUCTS: Product[] = [
     id: 'prod_03',
     name: 'Fast Charging 65W GaN Charger 3-Port',
     price: 1200,
+    productCost: 600,
+    packagingCost: 25,
+    deliveryCost: 55,
+    profitBeforeAdCost: 520,
     description: 'Universal fast charging for iPhone, Samsung, MacBooks.',
     isDefault: false,
     createdAt: '2026-01-03T00:00:00.000Z',
@@ -82,6 +94,10 @@ const INITIAL_PRODUCTS: Product[] = [
     id: 'prod_04',
     name: 'Men Designer Leather Wallet & Belt Gift Combo',
     price: 1950,
+    productCost: 950,
+    packagingCost: 50,
+    deliveryCost: 60,
+    profitBeforeAdCost: 890,
     description: '100% genuine leather with custom gift box.',
     isDefault: false,
     createdAt: '2026-01-04T00:00:00.000Z',
@@ -90,6 +106,10 @@ const INITIAL_PRODUCTS: Product[] = [
     id: 'prod_05',
     name: 'RGB Mechanical Gaming Keyboard with Blue Switches',
     price: 3100,
+    productCost: 1600,
+    packagingCost: 60,
+    deliveryCost: 70,
+    profitBeforeAdCost: 1370,
     description: 'Customizable backlit RGB, anti-ghosting keys.',
     isDefault: false,
     createdAt: '2026-01-05T00:00:00.000Z',
@@ -257,10 +277,25 @@ export async function getFirestoreProducts(): Promise<Product[]> {
 
 export async function createFirestoreProduct(productData: Partial<Product>): Promise<Product> {
   const newId = `prod_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  const price = Number(productData.price) || 0;
+  const productCost = productData.productCost !== undefined ? Number(productData.productCost) : Math.round(price * 0.5);
+  const packagingCost = productData.packagingCost !== undefined ? Number(productData.packagingCost) : 30;
+  const deliveryCost = productData.deliveryCost !== undefined ? Number(productData.deliveryCost) : 60;
+  
+  // Formula: Profit Before Ad Cost = Selling Price - Product Cost - Packaging Cost - Delivery Cost
+  const calculatedProfit = price - productCost - packagingCost - deliveryCost;
+  const profitBeforeAdCost = productData.profitBeforeAdCost !== undefined 
+    ? Number(productData.profitBeforeAdCost) 
+    : calculatedProfit;
+
   const product: Product = {
     id: newId,
     name: productData.name?.trim() || 'New Product',
-    price: Number(productData.price) || 0,
+    price,
+    productCost,
+    packagingCost,
+    deliveryCost,
+    profitBeforeAdCost,
     description: productData.description?.trim() || '',
     isDefault: !!productData.isDefault,
     createdAt: new Date().toISOString(),
@@ -289,6 +324,8 @@ export async function updateFirestoreProduct(id: string, productData: Partial<Pr
     throw new Error('Product not found in Firestore');
   }
 
+  const existing = docSnap.data() as Product;
+
   if (productData.isDefault) {
     const current = await getFirestoreProducts();
     const batch = writeBatch(db);
@@ -300,11 +337,24 @@ export async function updateFirestoreProduct(id: string, productData: Partial<Pr
     await batch.commit();
   }
 
-  const updated = {
-    ...docSnap.data(),
+  const price = productData.price !== undefined ? Number(productData.price) : existing.price;
+  const productCost = productData.productCost !== undefined ? Number(productData.productCost) : (existing.productCost ?? Math.round(price * 0.5));
+  const packagingCost = productData.packagingCost !== undefined ? Number(productData.packagingCost) : (existing.packagingCost ?? 30);
+  const deliveryCost = productData.deliveryCost !== undefined ? Number(productData.deliveryCost) : (existing.deliveryCost ?? 60);
+
+  let profitBeforeAdCost = productData.profitBeforeAdCost !== undefined 
+    ? Number(productData.profitBeforeAdCost) 
+    : (price - productCost - packagingCost - deliveryCost);
+
+  const updated: Product = {
+    ...existing,
     ...productData,
-    ...(productData.price !== undefined ? { price: Number(productData.price) } : {}),
-  } as Product;
+    price,
+    productCost,
+    packagingCost,
+    deliveryCost,
+    profitBeforeAdCost,
+  };
 
   await setDoc(docRef, updated, { merge: true });
   return updated;
@@ -501,7 +551,15 @@ export async function createFirestoreOrder(orderData: {
   productDetails: string;
   quantity?: number;
   orderAmount: number;
+  productsTotal?: number;
+  deliveryLocation?: DeliveryLocationType | string;
+  deliveryCharge?: number;
+  orderType?: OrderType;
+  items?: OrderItem[];
+  organizedCustomerData?: OrganizedCustomerData;
+  profitBeforeAdCost?: number;
   notes?: string;
+  orderDate?: string;
 }): Promise<Order> {
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
@@ -513,6 +571,19 @@ export async function createFirestoreOrder(orderData: {
     const resellers = await getFirestoreResellers();
     const r = resellers.find((x) => x.id === orderData.resellerId);
     if (r) resellerName = r.name;
+  }
+
+  // Calculate or verify profit before ad cost
+  let calculatedProfit = orderData.profitBeforeAdCost;
+  if (calculatedProfit === undefined) {
+    if (orderData.items && orderData.items.length > 0) {
+      calculatedProfit = orderData.items.reduce((sum, it) => {
+        const unitProfit = it.profitBeforeAdCostPerUnit !== undefined ? it.profitBeforeAdCostPerUnit : Math.round(it.unitPrice * 0.35);
+        return sum + (unitProfit * (it.quantity || 1));
+      }, 0);
+    } else {
+      calculatedProfit = Math.round((orderData.orderAmount || 0) * 0.35);
+    }
   }
 
   const order: Order = {
@@ -527,9 +598,16 @@ export async function createFirestoreOrder(orderData: {
     productDetails: orderData.productDetails.trim(),
     quantity: Math.max(1, orderData.quantity || 1),
     orderAmount: Number(orderData.orderAmount) || 0,
+    productsTotal: orderData.productsTotal !== undefined ? Number(orderData.productsTotal) : Number(orderData.orderAmount) || 0,
+    deliveryLocation: orderData.deliveryLocation || (orderData.district?.toLowerCase().includes('dhaka') ? 'Dhaka' : 'Other District'),
+    deliveryCharge: orderData.deliveryCharge !== undefined ? Number(orderData.deliveryCharge) : 0,
+    orderType: orderData.orderType || 'Direct Order',
+    items: orderData.items || [],
+    organizedCustomerData: orderData.organizedCustomerData,
+    profitBeforeAdCost: calculatedProfit,
     status: 'Pending',
     notes: orderData.notes?.trim() || '',
-    orderDate: new Date().toISOString(),
+    orderDate: orderData.orderDate || new Date().toISOString(),
     createdAt: new Date().toISOString(),
   };
 
@@ -544,11 +622,14 @@ export async function updateFirestoreOrder(id: string, updateData: Partial<Order
     throw new Error('Order not found in Firestore');
   }
 
+  const existing = snap.data() as Order;
   const updated = {
-    ...snap.data(),
+    ...existing,
     ...updateData,
     ...(updateData.orderAmount !== undefined ? { orderAmount: Number(updateData.orderAmount) } : {}),
     ...(updateData.quantity !== undefined ? { quantity: Number(updateData.quantity) } : {}),
+    ...(updateData.deliveryCharge !== undefined ? { deliveryCharge: Number(updateData.deliveryCharge) } : {}),
+    ...(updateData.productsTotal !== undefined ? { productsTotal: Number(updateData.productsTotal) } : {}),
   } as Order;
 
   await setDoc(docRef, updated, { merge: true });
@@ -557,6 +638,92 @@ export async function updateFirestoreOrder(id: string, updateData: Partial<Order
 
 export async function deleteFirestoreOrder(id: string): Promise<boolean> {
   await deleteDoc(doc(db, 'orders', id));
+  return true;
+}
+
+// ============================================================================
+// FIRESTORE AD SPENDS (Separate Daily Ad Expenditure Records)
+// ============================================================================
+
+export async function getFirestoreAdSpends(filters?: {
+  resellerId?: string;
+  startDate?: string;
+  endDate?: string;
+  platform?: string;
+}): Promise<AdSpendEntry[]> {
+  const snap = await getDocs(collection(db, 'ad_spends'));
+  let spends: AdSpendEntry[] = [];
+  snap.forEach((doc) => {
+    spends.push(doc.data() as AdSpendEntry);
+  });
+
+  if (filters?.resellerId && filters.resellerId !== 'all') {
+    spends = spends.filter((s) => s.resellerId === filters.resellerId);
+  }
+  if (filters?.platform && filters.platform !== 'all') {
+    spends = spends.filter((s) => s.platform === filters.platform);
+  }
+  if (filters?.startDate) {
+    spends = spends.filter((s) => s.date >= (filters.startDate || ''));
+  }
+  if (filters?.endDate) {
+    spends = spends.filter((s) => s.date <= (filters.endDate || ''));
+  }
+
+  return spends.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+
+export async function createFirestoreAdSpend(spendData: {
+  resellerId: string;
+  resellerName?: string;
+  date: string;
+  platform: 'Facebook / Meta Ads' | 'Google Ads' | 'TikTok Ads' | 'YouTube Ads' | 'Other';
+  amount: number;
+  notes?: string;
+}): Promise<AdSpendEntry> {
+  const newId = `ad_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+  let resellerName = spendData.resellerName || 'Reseller';
+  if (!spendData.resellerName) {
+    const resellers = await getFirestoreResellers();
+    const r = resellers.find((x) => x.id === spendData.resellerId);
+    if (r) resellerName = r.name;
+  }
+
+  const spend: AdSpendEntry = {
+    id: newId,
+    resellerId: spendData.resellerId,
+    resellerName,
+    date: spendData.date || new Date().toISOString().slice(0, 10),
+    platform: spendData.platform || 'Facebook / Meta Ads',
+    amount: Number(spendData.amount) || 0,
+    notes: spendData.notes?.trim() || '',
+    createdAt: new Date().toISOString(),
+  };
+
+  await setDoc(doc(db, 'ad_spends', newId), spend);
+  return spend;
+}
+
+export async function updateFirestoreAdSpend(id: string, spendData: Partial<AdSpendEntry>): Promise<AdSpendEntry> {
+  const docRef = doc(db, 'ad_spends', id);
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) {
+    throw new Error('Ad spend entry not found in Firestore');
+  }
+
+  const updated = {
+    ...snap.data(),
+    ...spendData,
+    ...(spendData.amount !== undefined ? { amount: Number(spendData.amount) } : {}),
+  } as AdSpendEntry;
+
+  await setDoc(docRef, updated, { merge: true });
+  return updated;
+}
+
+export async function deleteFirestoreAdSpend(id: string): Promise<boolean> {
+  await deleteDoc(doc(db, 'ad_spends', id));
   return true;
 }
 
@@ -660,7 +827,7 @@ export async function deleteFirestoreDailyWork(id: string): Promise<boolean> {
 }
 
 // ============================================================================
-// FIRESTORE DASHBOARD STATS COMPUTATION
+// FIRESTORE DASHBOARD STATS & ESTIMATED PROFIT COMPUTATION
 // ============================================================================
 
 export async function getFirestoreDashboardStats(filters?: {
@@ -668,23 +835,90 @@ export async function getFirestoreDashboardStats(filters?: {
   endDate?: string;
   resellerId?: string;
 }): Promise<DashboardStats> {
-  const [allResellers, allOrders, allWorks] = await Promise.all([
+  const [allResellers, allOrders, allWorks, allAdSpends, allProducts] = await Promise.all([
     getFirestoreResellers(),
     getFirestoreOrders(filters),
     getFirestoreDailyWorks(filters),
+    getFirestoreAdSpends(filters),
+    getFirestoreProducts(),
   ]);
 
   const totalResellers = allResellers.length;
   const activeResellers = allResellers.filter((r) => r.status === 'active').length;
   const totalOrders = allOrders.length;
   const totalSales = allOrders.reduce((sum, o) => sum + (o.orderAmount || 0), 0);
-  const totalAdSpend = allWorks.reduce((sum, w) => sum + (w.adSpend || 0), 0);
+
+  // Products map for quick profit reference
+  const prodMap = new Map<string, Product>();
+  for (const p of allProducts) {
+    prodMap.set(p.id, p);
+    prodMap.set(p.name.toLowerCase().trim(), p);
+  }
+
+  // Calculate Profit Before Ad Cost per order
+  let totalProfitBeforeAdCost = 0;
+  let totalProductsSold = 0;
+  let directOrdersCount = 0;
+  let followUpOrdersCount = 0;
+
+  for (const o of allOrders) {
+    if (o.orderType === 'Follow-up Order') {
+      followUpOrdersCount += 1;
+    } else {
+      directOrdersCount += 1;
+    }
+
+    // Product unit counts
+    if (o.items && o.items.length > 0) {
+      const itemsCount = o.items.reduce((s, it) => s + (it.quantity || 1), 0);
+      totalProductsSold += itemsCount;
+    } else {
+      totalProductsSold += (o.quantity || 1);
+    }
+
+    // Profit before ad cost for this order
+    let orderProfit = 0;
+    if (o.profitBeforeAdCost !== undefined && o.profitBeforeAdCost > 0) {
+      orderProfit = o.profitBeforeAdCost;
+    } else if (o.items && o.items.length > 0) {
+      orderProfit = o.items.reduce((sum, it) => {
+        if (it.profitBeforeAdCostPerUnit !== undefined) {
+          return sum + (it.profitBeforeAdCostPerUnit * (it.quantity || 1));
+        }
+        const matchedProd = it.productId ? prodMap.get(it.productId) : prodMap.get(it.productName.toLowerCase().trim());
+        if (matchedProd && matchedProd.profitBeforeAdCost !== undefined) {
+          return sum + (matchedProd.profitBeforeAdCost * (it.quantity || 1));
+        }
+        // Fallback profit margin (35% of unit price)
+        return sum + Math.round(it.unitPrice * 0.35 * (it.quantity || 1));
+      }, 0);
+    } else {
+      // Single product order fallback
+      const matchedProd = prodMap.get(o.productDetails.toLowerCase().trim());
+      if (matchedProd && matchedProd.profitBeforeAdCost !== undefined) {
+        orderProfit = matchedProd.profitBeforeAdCost * (o.quantity || 1);
+      } else {
+        orderProfit = Math.round((o.orderAmount || 0) * 0.35);
+      }
+    }
+
+    totalProfitBeforeAdCost += orderProfit;
+  }
+
+  // Combine Ad Spend from both ad_spends collection and daily_work adSpend field
+  const dedicatedAdSpendTotal = allAdSpends.reduce((sum, s) => sum + (s.amount || 0), 0);
+  const dailyWorkAdSpendTotal = allWorks.reduce((sum, w) => sum + (w.adSpend || 0), 0);
+  // Use dedicated ad spends if available, else sum
+  const totalAdSpend = dedicatedAdSpendTotal > 0 ? dedicatedAdSpendTotal : dailyWorkAdSpendTotal;
   const totalWorkingHours = allWorks.reduce((sum, w) => sum + (w.totalHours || 0), 0);
+
+  // Estimated Profit = Total Profit Before Ad Cost - Total Ad Spend
+  const estimatedProfit = totalProfitBeforeAdCost - totalAdSpend;
 
   const overallAOV = totalOrders > 0 ? Math.round(totalSales / totalOrders) : 0;
   const overallROAS = totalAdSpend > 0 ? Number((totalSales / totalAdSpend).toFixed(2)) : 0;
 
-  // Reseller Performance
+  // Reseller Performance & Profit Breakdown
   const performanceMap = new Map<string, {
     resellerId: string;
     resellerName: string;
@@ -694,6 +928,10 @@ export async function getFirestoreDashboardStats(filters?: {
     totalSales: number;
     totalAdSpend: number;
     totalHours: number;
+    totalProductsSold: number;
+    directOrders: number;
+    followUpOrders: number;
+    profitBeforeAdCost: number;
   }>();
 
   for (const r of allResellers) {
@@ -706,6 +944,10 @@ export async function getFirestoreDashboardStats(filters?: {
       totalSales: 0,
       totalAdSpend: 0,
       totalHours: 0,
+      totalProductsSold: 0,
+      directOrders: 0,
+      followUpOrders: 0,
+      profitBeforeAdCost: 0,
     });
   }
 
@@ -714,49 +956,111 @@ export async function getFirestoreDashboardStats(filters?: {
     if (perf) {
       perf.totalOrders += 1;
       perf.totalSales += o.orderAmount || 0;
+      if (o.orderType === 'Follow-up Order') {
+        perf.followUpOrders += 1;
+      } else {
+        perf.directOrders += 1;
+      }
+
+      let q = o.quantity || 1;
+      if (o.items && o.items.length > 0) {
+        q = o.items.reduce((s, it) => s + (it.quantity || 1), 0);
+      }
+      perf.totalProductsSold += q;
+
+      let p = o.profitBeforeAdCost || Math.round((o.orderAmount || 0) * 0.35);
+      perf.profitBeforeAdCost += p;
+    }
+  }
+
+  // Add ad spend per reseller
+  if (allAdSpends.length > 0) {
+    for (const s of allAdSpends) {
+      const perf = performanceMap.get(s.resellerId);
+      if (perf) {
+        perf.totalAdSpend += s.amount || 0;
+      }
+    }
+  } else {
+    for (const w of allWorks) {
+      const perf = performanceMap.get(w.resellerId);
+      if (perf) {
+        perf.totalAdSpend += w.adSpend || 0;
+      }
     }
   }
 
   for (const w of allWorks) {
     const perf = performanceMap.get(w.resellerId);
     if (perf) {
-      perf.totalAdSpend += w.adSpend || 0;
       perf.totalHours += w.totalHours || 0;
     }
   }
 
-  const resellerPerformance = Array.from(performanceMap.values()).map((p) => {
+  const resellerProfits: ResellerProfitSummary[] = [];
+  const resellerPerformance: ResellerPerformance[] = [];
+
+  for (const p of performanceMap.values()) {
     const aov = p.totalOrders > 0 ? Math.round(p.totalSales / p.totalOrders) : 0;
     const roas = p.totalAdSpend > 0 ? Number((p.totalSales / p.totalAdSpend).toFixed(2)) : 0;
     const costPerOrder = p.totalOrders > 0 ? Math.round(p.totalAdSpend / p.totalOrders) : 0;
-    return {
+    const resEstimatedProfit = p.profitBeforeAdCost - p.totalAdSpend;
+
+    resellerPerformance.push({
       ...p,
       averageOrderValue: aov,
       roas,
       costPerOrder,
-    };
-  });
+      profitBeforeAdCost: p.profitBeforeAdCost,
+      estimatedProfit: resEstimatedProfit,
+    });
 
-  // Sales by Date (last 14 days or filtered period)
-  const dateMap = new Map<string, { sales: number; adSpend: number; orders: number; hours: number }>();
+    resellerProfits.push({
+      resellerId: p.resellerId,
+      resellerName: p.resellerName,
+      status: p.status,
+      phone: p.phone,
+      totalOrders: p.totalOrders,
+      totalProductsSold: p.totalProductsSold,
+      directOrders: p.directOrders,
+      followUpOrders: p.followUpOrders,
+      totalRevenue: p.totalSales,
+      profitBeforeAdCost: p.profitBeforeAdCost,
+      totalAdSpend: p.totalAdSpend,
+      estimatedProfit: resEstimatedProfit,
+    });
+  }
+
+  // Sales & profit by Date
+  const dateMap = new Map<string, { sales: number; adSpend: number; orders: number; hours: number; profit: number }>();
   for (const o of allOrders) {
     const d = o.orderDate.slice(0, 10);
-    const curr = dateMap.get(d) || { sales: 0, adSpend: 0, orders: 0, hours: 0 };
+    const curr = dateMap.get(d) || { sales: 0, adSpend: 0, orders: 0, hours: 0, profit: 0 };
     curr.sales += o.orderAmount || 0;
     curr.orders += 1;
+    curr.profit += o.profitBeforeAdCost || Math.round((o.orderAmount || 0) * 0.35);
+    dateMap.set(d, curr);
+  }
+
+  for (const s of allAdSpends) {
+    const d = s.date;
+    const curr = dateMap.get(d) || { sales: 0, adSpend: 0, orders: 0, hours: 0, profit: 0 };
+    curr.adSpend += s.amount || 0;
     dateMap.set(d, curr);
   }
 
   for (const w of allWorks) {
     const d = w.workDate;
-    const curr = dateMap.get(d) || { sales: 0, adSpend: 0, orders: 0, hours: 0 };
-    curr.adSpend += w.adSpend || 0;
+    const curr = dateMap.get(d) || { sales: 0, adSpend: 0, orders: 0, hours: 0, profit: 0 };
+    if (allAdSpends.length === 0) {
+      curr.adSpend += w.adSpend || 0;
+    }
     curr.hours += w.totalHours || 0;
     dateMap.set(d, curr);
   }
 
   const salesByDate = Array.from(dateMap.entries())
-    .map(([date, val]) => ({ date, ...val }))
+    .map(([date, val]) => ({ date, ...val, profit: val.profit - val.adSpend }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
   return {
@@ -768,6 +1072,13 @@ export async function getFirestoreDashboardStats(filters?: {
     totalWorkingHours,
     overallAOV,
     overallROAS,
+    totalProfitBeforeAdCost,
+    estimatedProfit,
+    totalProductsSold,
+    directOrdersCount,
+    followUpOrdersCount,
+    resellerProfits,
+    adSpendEntries: allAdSpends,
     salesByDate,
     resellerPerformance,
     recentOrders: allOrders.slice(0, 10),

@@ -1,4 +1,4 @@
-import { Reseller, Order, DailyWork, DashboardStats, DatabaseInfo, Product, ResellerSession, FraudCheckResult, RepeatOrderInfo } from '../types';
+import { Reseller, Order, DailyWork, DashboardStats, DatabaseInfo, Product, ResellerSession, FraudCheckResult, RepeatOrderInfo, AdSpendEntry, OrderItem, OrganizedCustomerData, OrderType, DeliveryLocationType } from '../types';
 import {
   getFirestoreProducts,
   createFirestoreProduct,
@@ -18,6 +18,10 @@ import {
   createFirestoreDailyWork,
   updateFirestoreDailyWork,
   deleteFirestoreDailyWork,
+  getFirestoreAdSpends,
+  createFirestoreAdSpend,
+  updateFirestoreAdSpend,
+  deleteFirestoreAdSpend,
   getFirestoreDashboardStats,
   verifyFirestoreAdminLogin,
   updateFirestoreAdminCredentials,
@@ -157,10 +161,17 @@ export const api = {
     customerPhone: string;
     customerAddress: string;
     district: string;
-    thana: string;
+    thana?: string;
     productDetails: string;
-    quantity: number;
+    quantity?: number;
     orderAmount: number;
+    productsTotal?: number;
+    deliveryLocation?: DeliveryLocationType | string;
+    deliveryCharge?: number;
+    orderType?: OrderType;
+    items?: OrderItem[];
+    organizedCustomerData?: OrganizedCustomerData;
+    profitBeforeAdCost?: number;
     notes?: string;
   }): Promise<{ message: string; order: Order }> {
     const order = await createFirestoreOrder(orderData);
@@ -300,6 +311,37 @@ export const api = {
 
   async deleteDailyWork(id: string): Promise<boolean> {
     return await deleteFirestoreDailyWork(id);
+  },
+
+  // ==========================================
+  // ADMIN AD SPENDS (Separate Ad Expenditure Management)
+  // ==========================================
+  async getAdminAdSpends(params?: {
+    resellerId?: string;
+    startDate?: string;
+    endDate?: string;
+    platform?: string;
+  }): Promise<AdSpendEntry[]> {
+    return await getFirestoreAdSpends(params);
+  },
+
+  async createAdSpend(spendData: {
+    resellerId: string;
+    resellerName?: string;
+    date: string;
+    platform: 'Facebook / Meta Ads' | 'Google Ads' | 'TikTok Ads' | 'YouTube Ads' | 'Other';
+    amount: number;
+    notes?: string;
+  }): Promise<AdSpendEntry> {
+    return await createFirestoreAdSpend(spendData);
+  },
+
+  async updateAdSpend(id: string, spendData: Partial<AdSpendEntry>): Promise<AdSpendEntry> {
+    return await updateFirestoreAdSpend(id, spendData);
+  },
+
+  async deleteAdSpend(id: string): Promise<boolean> {
+    return await deleteFirestoreAdSpend(id);
   },
 
   // ==========================================

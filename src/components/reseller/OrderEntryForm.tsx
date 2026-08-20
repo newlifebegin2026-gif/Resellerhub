@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import confetti from 'canvas-confetti';
 import {
   ShoppingBag,
@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   Copy,
   Plus,
+  Trash2,
   AlertCircle,
   Sparkles,
   Tag,
@@ -29,16 +30,31 @@ import {
   ChevronDown,
   ChevronUp,
   Receipt,
-  UserCheck,
+  Truck,
+  Zap,
+  Globe,
+  DollarSign,
+  Info,
 } from 'lucide-react';
-import { Reseller, Order, Product, ResellerSession, FraudCheckResult, RepeatOrderInfo } from '../../types';
+import { Reseller, Order, Product, ResellerSession, FraudCheckResult, RepeatOrderInfo, OrderItem, OrganizedCustomerData, OrderType, DeliveryLocationType } from '../../types';
 import { api } from '../../services/api';
-import { BANGLADESH_DISTRICTS, COMMON_THANAS } from '../../constants/locations';
+import { BANGLADESH_DISTRICTS } from '../../constants/locations';
+import { parseCustomerDetails } from '../../utils/customerParser';
 
 interface OrderEntryFormProps {
   onOrderCreated?: (order: Order) => void;
   currentResellerSession?: ResellerSession | null;
   onViewMyOrders?: () => void;
+}
+
+interface ProductRowState {
+  tempId: string;
+  productId: string;
+  productName: string;
+  unitPrice: number;
+  quantity: number;
+  isCustom: boolean;
+  profitBeforeAdCostPerUnit?: number;
 }
 
 export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
@@ -56,24 +72,35 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
 
   // Form Fields
   const [resellerId, setResellerId] = useState(currentResellerSession?.id || '');
-  const [selectedProductId, setSelectedProductId] = useState<string>('');
-  const [customProductTitle, setCustomProductTitle] = useState('');
-  const [isCustomProduct, setIsCustomProduct] = useState(false);
   const [customerFullDetails, setCustomerFullDetails] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
   const [district, setDistrict] = useState('Dhaka');
   const [thana, setThana] = useState('');
-  const [quantity, setQuantity] = useState<number>(1);
-  const [unitPrice, setUnitPrice] = useState<number>(0);
-  const [orderAmount, setOrderAmount] = useState<string>('');
   const [notes, setNotes] = useState('');
-  const [orderDate, setOrderDate] = useState(() => {
-    const now = new Date();
-    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-    return local.toISOString().slice(0, 16);
-  });
+  const [orderType, setOrderType] = useState<OrderType>('Direct Order');
+  
+  // Delivery Location & Charges
+  const [deliveryLocation, setDeliveryLocation] = useState<DeliveryLocationType>('Other District');
+  const [deliveryCharge, setDeliveryCharge] = useState<number>(120);
+  const [isCustomDeliveryCharge, setIsCustomDeliveryCharge] = useState(false);
+
+  // Multiple Product Rows
+  const [productRows, setProductRows] = useState<ProductRowState[]>([
+    {
+      tempId: 'row_1',
+      productId: '',
+      productName: '',
+      unitPrice: 0,
+      quantity: 1,
+      isCustom: false,
+    },
+  ]);
+
+  // Parsed customer information helper
+  const [organizedData, setOrganizedData] = useState<OrganizedCustomerData | null>(null);
+  const [showOrganizedPreview, setShowOrganizedPreview] = useState(false);
 
   // Steadfast Courier Fraud Checker State
   const [fraudResult, setFraudResult] = useState<FraudCheckResult | null>(null);
@@ -90,7 +117,7 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
     loadData();
   }, []);
 
-  // Update resellerId if currentResellerSession changes
+  // Update resellerId if session changes
   useEffect(() => {
     if (currentResellerSession) {
       setResellerId(currentResellerSession.id);
@@ -108,17 +135,25 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
       setResellers(resellersData);
       setProducts(productsData);
 
-      // Set default reseller if not logged in
+      // Default reseller if none logged in
       if (!currentResellerSession && resellersData.length > 0) {
         setResellerId(resellersData[0].id);
       }
 
-      // Find default product set by Admin
+      // Default product selection for row 1
       if (productsData.length > 0) {
         const defaultProd = productsData.find((p) => p.isDefault) || productsData[0];
-        setSelectedProductId(defaultProd.id);
-        setUnitPrice(defaultProd.price);
-        setOrderAmount((defaultProd.price * 1).toString());
+        setProductRows([
+          {
+            tempId: 'row_1',
+            productId: defaultProd.id,
+            productName: defaultProd.name,
+            unitPrice: defaultProd.price,
+            quantity: 1,
+            isCustom: false,
+            profitBeforeAdCostPerUnit: defaultProd.profitBeforeAdCost,
+          },
+        ]);
       }
     } catch (err: any) {
       console.error('Error fetching initial data:', err);
@@ -127,74 +162,164 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
     }
   };
 
-  // Handle product selection change
-  const handleProductChange = (prodId: string) => {
-    if (prodId === 'CUSTOM') {
-      setIsCustomProduct(true);
-      setSelectedProductId('CUSTOM');
-      setUnitPrice(0);
-      setOrderAmount('');
-      return;
-    }
+  // Multiple Product Management
+  const handleAddProductRow = () => {
+    const defaultProd = products.find((p) => p.isDefault) || products[0];
+    const newRow: ProductRowState = {
+      tempId: `row_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      productId: defaultProd ? defaultProd.id : 'CUSTOM',
+      productName: defaultProd ? defaultProd.name : '',
+      unitPrice: defaultProd ? defaultProd.price : 0,
+      quantity: 1,
+      isCustom: !defaultProd,
+      profitBeforeAdCostPerUnit: defaultProd?.profitBeforeAdCost,
+    };
+    setProductRows((prev) => [...prev, newRow]);
+  };
 
-    setIsCustomProduct(false);
-    setSelectedProductId(prodId);
-    const chosen = products.find((p) => p.id === prodId);
-    if (chosen) {
-      setUnitPrice(chosen.price);
-      setOrderAmount((chosen.price * quantity).toString());
+  const handleRemoveProductRow = (tempId: string) => {
+    if (productRows.length <= 1) return;
+    setProductRows((prev) => prev.filter((r) => r.tempId !== tempId));
+  };
+
+  const handleRowProductChange = (tempId: string, prodId: string) => {
+    setProductRows((prev) =>
+      prev.map((row) => {
+        if (row.tempId !== tempId) return row;
+        if (prodId === 'CUSTOM') {
+          return {
+            ...row,
+            productId: 'CUSTOM',
+            productName: '',
+            unitPrice: 0,
+            isCustom: true,
+            profitBeforeAdCostPerUnit: undefined,
+          };
+        }
+        const matched = products.find((p) => p.id === prodId);
+        return {
+          ...row,
+          productId: prodId,
+          productName: matched?.name || '',
+          unitPrice: matched?.price || 0,
+          isCustom: false,
+          profitBeforeAdCostPerUnit: matched?.profitBeforeAdCost,
+        };
+      })
+    );
+  };
+
+  const handleRowPriceChange = (tempId: string, price: number) => {
+    setProductRows((prev) =>
+      prev.map((row) => (row.tempId === tempId ? { ...row, unitPrice: Math.max(0, price) } : row))
+    );
+  };
+
+  const handleRowCustomNameChange = (tempId: string, name: string) => {
+    setProductRows((prev) =>
+      prev.map((row) => (row.tempId === tempId ? { ...row, productName: name } : row))
+    );
+  };
+
+  const handleRowQuantityChange = (tempId: string, delta: number) => {
+    setProductRows((prev) =>
+      prev.map((row) => {
+        if (row.tempId !== tempId) return row;
+        const newQty = Math.max(1, (row.quantity || 1) + delta);
+        return { ...row, quantity: newQty };
+      })
+    );
+  };
+
+  const handleRowQuantityDirect = (tempId: string, val: number) => {
+    setProductRows((prev) =>
+      prev.map((row) => (row.tempId === tempId ? { ...row, quantity: Math.max(1, val) } : row))
+    );
+  };
+
+  // Calculations
+  const productsTotal = useMemo(() => {
+    return productRows.reduce((sum, row) => sum + (Number(row.unitPrice) || 0) * (Number(row.quantity) || 1), 0);
+  }, [productRows]);
+
+  const totalQuantity = useMemo(() => {
+    return productRows.reduce((sum, row) => sum + (Number(row.quantity) || 1), 0);
+  }, [productRows]);
+
+  // Delivery charge auto calculation based on location & product count
+  const handleLocationChange = (loc: DeliveryLocationType) => {
+    setDeliveryLocation(loc);
+    if (!isCustomDeliveryCharge) {
+      if (loc === 'Dhaka') {
+        setDeliveryCharge(60);
+      } else if (loc === 'Free Delivery') {
+        setDeliveryCharge(0);
+      } else {
+        setDeliveryCharge(120);
+      }
     }
   };
 
-  // Handle quantity change
-  const handleQuantityChange = (newQty: number) => {
-    const validQty = Math.max(1, newQty);
-    setQuantity(validQty);
-    if (!isCustomProduct && unitPrice > 0) {
-      setOrderAmount((unitPrice * validQty).toString());
-    }
-  };
+  const finalCODTotal = useMemo(() => {
+    return Math.max(0, productsTotal + (Number(deliveryCharge) || 0));
+  }, [productsTotal, deliveryCharge]);
 
-  // Auto-parse details when customer pastes into full details field
-  const handleFullDetailsChange = (val: string) => {
+  // Parse Raw Customer Text automatically
+  const handleCustomerDetailsChange = (val: string) => {
     setCustomerFullDetails(val);
+    if (val.trim()) {
+      const parsed = parseCustomerDetails(val);
+      setOrganizedData(parsed);
+      setShowOrganizedPreview(true);
 
-    // Try extracting phone if phone is empty or previously parsed
-    const phoneMatch = val.match(/(?:(?:\+|00)880|0)?1[3-9]\d{8}/);
-    if (phoneMatch && (!customerPhone || customerPhone.length < 11)) {
-      let cleanedPhone = phoneMatch[0].replace(/^(\+88|88)/, '');
-      if (!cleanedPhone.startsWith('0')) cleanedPhone = '0' + cleanedPhone;
-      setCustomerPhone(cleanedPhone);
-    }
+      // Auto populate phone if empty
+      if (parsed.cleanPhone && (!customerPhone || customerPhone.length < 11)) {
+        setCustomerPhone(parsed.cleanPhone);
+      }
 
-    // Try extracting COD or Price if orderAmount is empty
-    const codMatch = val.match(/(?:cod|cash|amount|price|total|টাকা|৳)\s*[:=\-]?\s*(\d{2,6})/i) ||
-      val.match(/(\d{3,6})\s*(?:tk|taka|bdt|৳|টাকা)/i);
-    if (codMatch && codMatch[1] && (!orderAmount || orderAmount === '0')) {
-      setOrderAmount(codMatch[1]);
+      // Auto update delivery location if detected
+      if (parsed.location) {
+        setDeliveryLocation(parsed.location);
+        if (!isCustomDeliveryCharge) {
+          setDeliveryCharge(parsed.location === 'Dhaka' ? 60 : 120);
+        }
+      }
+
+      // Auto update district
+      if (parsed.district) {
+        setDistrict(parsed.district);
+      }
+    } else {
+      setOrganizedData(null);
+      setShowOrganizedPreview(false);
     }
   };
 
-  const selectedReseller = resellers.find((r) => r.id === resellerId) || (currentResellerSession ? {
-    id: currentResellerSession.id,
-    name: currentResellerSession.name,
-    phone: currentResellerSession.phone,
-    email: currentResellerSession.email,
-    status: 'active' as const,
-    joinedDate: currentResellerSession.joinedDate,
-  } : null);
-
-  const selectedProduct = products.find((p) => p.id === selectedProductId);
-  const isDefaultActive = selectedProduct?.isDefault;
+  // Apply parsed data directly to specific fields
+  const applyOrganizedData = () => {
+    if (!organizedData) return;
+    if (organizedData.customerName) setCustomerName(organizedData.customerName);
+    if (organizedData.customerPhone) setCustomerPhone(organizedData.customerPhone);
+    if (organizedData.district) setDistrict(organizedData.district);
+    if (organizedData.location) handleLocationChange(organizedData.location);
+    if (organizedData.area) setThana(organizedData.area);
+  };
 
   // Phone operator check
   const getOperatorInfo = (phone: string) => {
     const cleaned = phone.replace(/[\s\-\+]/g, '');
-    if (cleaned.startsWith('017') || cleaned.startsWith('013') || cleaned.startsWith('88017') || cleaned.startsWith('88013')) return { name: 'Grameenphone', color: 'bg-blue-50 text-blue-700 border-blue-200' };
-    if (cleaned.startsWith('018') || cleaned.startsWith('88018')) return { name: 'Robi', color: 'bg-red-50 text-red-700 border-red-200' };
-    if (cleaned.startsWith('019') || cleaned.startsWith('014') || cleaned.startsWith('88019') || cleaned.startsWith('88014')) return { name: 'Banglalink', color: 'bg-amber-50 text-amber-700 border-amber-200' };
-    if (cleaned.startsWith('016') || cleaned.startsWith('88016')) return { name: 'Airtel', color: 'bg-rose-50 text-rose-700 border-rose-200' };
-    if (cleaned.startsWith('015') || cleaned.startsWith('88015')) return { name: 'Teletalk', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+    if (cleaned.startsWith('017') || cleaned.startsWith('013') || cleaned.startsWith('88017') || cleaned.startsWith('88013'))
+      return { name: 'Grameenphone', color: 'bg-blue-50 text-blue-700 border-blue-200' };
+    if (cleaned.startsWith('018') || cleaned.startsWith('88018'))
+      return { name: 'Robi', color: 'bg-red-50 text-red-700 border-red-200' };
+    if (cleaned.startsWith('019') || cleaned.startsWith('014') || cleaned.startsWith('88019') || cleaned.startsWith('88014'))
+      return { name: 'Banglalink', color: 'bg-amber-50 text-amber-700 border-amber-200' };
+    if (cleaned.startsWith('016') || cleaned.startsWith('88016'))
+      return { name: 'Airtel', color: 'bg-rose-50 text-rose-700 border-rose-200' };
+    if (cleaned.startsWith('015') || cleaned.startsWith('88015'))
+      return { name: 'Teletalk', color: 'bg-emerald-50 text-emerald-700 border-emerald-200' };
+    if (phone.startsWith('+') || phone.startsWith('00'))
+      return { name: 'International / Foreign Number', color: 'bg-purple-50 text-purple-700 border-purple-200' };
     return null;
   };
 
@@ -245,20 +370,19 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
     }
   };
 
-  // Auto-run repeat order detection (instant) & courier fraud check with debounce
+  // Debounced phone verification triggers
   useEffect(() => {
     let cleaned = customerPhone.replace(/[\s\-\(\)\+]/g, '');
     if (cleaned.startsWith('880')) cleaned = '0' + cleaned.substring(3);
     else if (cleaned.startsWith('88')) cleaned = '0' + cleaned.substring(2);
 
     if (cleaned.length >= 9) {
-      // Instant check for repeat orders from database
       const timer = setTimeout(() => {
         checkRepeatForPhone(cleaned);
         if (cleaned.length === 11 && /^01[3-9]\d{8}$/.test(cleaned)) {
           checkFraudForPhone(cleaned);
         }
-      }, 250);
+      }, 200);
       return () => clearTimeout(timer);
     } else {
       setRepeatOrderResult(null);
@@ -267,63 +391,99 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
     }
   }, [customerPhone]);
 
+  // Form Submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
-    // Validation
     if (!resellerId) {
       setErrorMessage('Please select or log in with your Reseller account.');
       return;
     }
+
     if (!customerFullDetails.trim()) {
-      setErrorMessage('Please enter or paste the customer full details.');
+      setErrorMessage('Please enter customer delivery details.');
       return;
     }
+
     if (!customerPhone.trim() || customerPhone.length < 9) {
       setErrorMessage('Please enter a valid customer phone number.');
       return;
     }
 
-    // Extract / derive name from full details
-    let derivedName = '';
-    const lines = customerFullDetails.split('\n').map(l => l.trim()).filter(Boolean);
-    const nameLineMatch = customerFullDetails.match(/(?:name|customer|নাম)\s*[:=\-]\s*([^\n\r,]+)/i);
-    if (nameLineMatch && nameLineMatch[1]) {
-      derivedName = nameLineMatch[1].trim();
-    } else if (lines.length > 0) {
-      derivedName = lines[0].replace(/^(name|customer|নাম)[:\-\s]+/i, '').trim();
-    }
-    if (!derivedName || derivedName.length > 60 || /^\d+$/.test(derivedName)) {
-      derivedName = 'Customer';
+    // Verify at least one product with name & price
+    const validItems: OrderItem[] = [];
+    for (const row of productRows) {
+      const name = row.isCustom ? row.productName.trim() : (products.find((p) => p.id === row.productId)?.name || row.productName);
+      if (!name) {
+        setErrorMessage('Please enter the product name for all added items.');
+        return;
+      }
+      if (row.unitPrice < 0) {
+        setErrorMessage('Unit price cannot be negative.');
+        return;
+      }
+      const qty = Math.max(1, Number(row.quantity) || 1);
+      const price = Number(row.unitPrice) || 0;
+      validItems.push({
+        productId: row.isCustom ? undefined : row.productId,
+        productName: name,
+        unitPrice: price,
+        quantity: qty,
+        totalPrice: price * qty,
+        profitBeforeAdCostPerUnit: row.profitBeforeAdCostPerUnit,
+      });
     }
 
-    // Product details
-    const finalProductDetails = isCustomProduct
-      ? customProductTitle.trim() || 'E-commerce Order'
-      : selectedProduct
-      ? `${selectedProduct.name}${selectedProduct.description ? ` (${selectedProduct.description})` : ''}`
-      : 'E-commerce Item';
-
-    const parsedAmount = parseFloat(orderAmount) || (selectedProduct ? selectedProduct.price * quantity : 0);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      setErrorMessage('Please verify the COD order amount.');
+    if (validItems.length === 0) {
+      setErrorMessage('Please add at least one product to the order.');
       return;
     }
+
+    // Derived customer name
+    let derivedName = customerName.trim();
+    if (!derivedName) {
+      const parsed = organizedData || parseCustomerDetails(customerFullDetails);
+      derivedName = parsed.customerName || 'Customer';
+    }
+
+    // Product summary string
+    const productSummary = validItems
+      .map((it) => `${it.productName} (x${it.quantity})`)
+      .join(' + ');
+
+    // Calculate total profit before ad cost
+    const profitBeforeAdCost = validItems.reduce((sum, it) => {
+      const unitProfit = it.profitBeforeAdCostPerUnit !== undefined
+        ? it.profitBeforeAdCostPerUnit
+        : Math.round(it.unitPrice * 0.35);
+      return sum + unitProfit * it.quantity;
+    }, 0);
+
+    const selectedReseller = resellers.find((r) => r.id === resellerId) || (currentResellerSession ? {
+      name: currentResellerSession.name,
+    } : undefined);
 
     try {
       setSubmitting(true);
       const res = await api.submitOrder({
         resellerId,
-        resellerName: selectedReseller ? selectedReseller.name : currentResellerSession?.name || 'Unknown Reseller',
+        resellerName: selectedReseller?.name || 'Reseller',
         customerName: derivedName,
         customerPhone: customerPhone.trim(),
         customerAddress: customerFullDetails.trim(),
         district: district || 'Dhaka',
         thana: thana.trim(),
-        productDetails: finalProductDetails,
-        quantity: Math.max(1, quantity),
-        orderAmount: parsedAmount,
+        productDetails: productSummary,
+        quantity: totalQuantity,
+        productsTotal,
+        deliveryLocation,
+        deliveryCharge: Number(deliveryCharge) || 0,
+        orderAmount: finalCODTotal,
+        orderType,
+        items: validItems,
+        organizedCustomerData: organizedData || parseCustomerDetails(customerFullDetails),
+        profitBeforeAdCost,
         notes: notes.trim(),
       });
 
@@ -333,8 +493,8 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
       }
 
       confetti({
-        particleCount: 75,
-        spread: 60,
+        particleCount: 80,
+        spread: 65,
         origin: { y: 0.6 },
       });
     } catch (err: any) {
@@ -351,810 +511,804 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
     setCustomerAddress('');
     setThana('');
     setNotes('');
-    setQuantity(1);
-    setSubmittedOrder(null);
-    setCopied(false);
-    setErrorMessage(null);
+    setOrganizedData(null);
+    setShowOrganizedPreview(false);
     setFraudResult(null);
-    setFraudError(null);
-
-    // Reset back to admin default product
+    setRepeatOrderResult(null);
+    setSubmittedOrder(null);
+    setOrderType('Direct Order');
+    
+    // Reset product rows to 1 default product
     const defaultProd = products.find((p) => p.isDefault) || products[0];
-    if (defaultProd) {
-      setSelectedProductId(defaultProd.id);
-      setIsCustomProduct(false);
-      setUnitPrice(defaultProd.price);
-      setOrderAmount((defaultProd.price * 1).toString());
-    }
+    setProductRows([
+      {
+        tempId: 'row_1',
+        productId: defaultProd ? defaultProd.id : '',
+        productName: defaultProd ? defaultProd.name : '',
+        unitPrice: defaultProd ? defaultProd.price : 0,
+        quantity: 1,
+        isCustom: false,
+        profitBeforeAdCostPerUnit: defaultProd?.profitBeforeAdCost,
+      },
+    ]);
   };
 
-  const handleCopySummary = () => {
+  const copyOrderDetails = () => {
     if (!submittedOrder) return;
-    const summary = `📦 *NEW ORDER CONFIRMATION*
-━━━━━━━━━━━━━━━━━━━━
-👤 *Reseller:* ${submittedOrder.resellerName}
-🔖 *Order ID:* #${submittedOrder.id}
-🛍️ *Product:* ${submittedOrder.productDetails}
-🔢 *Qty:* ${submittedOrder.quantity}
-💰 *Total Amount:* ৳${submittedOrder.orderAmount.toLocaleString()}
+    const text = `📦 ORDER CONFIRMATION
+Order ID: ${submittedOrder.id}
+Customer: ${submittedOrder.customerName}
+Phone: ${submittedOrder.customerPhone}
+Address: ${submittedOrder.customerAddress}
+District: ${submittedOrder.district}
+Products: ${submittedOrder.productDetails}
+Items Count: ${submittedOrder.quantity}
+Products Total: ৳${submittedOrder.productsTotal?.toLocaleString() || submittedOrder.orderAmount.toLocaleString()}
+Delivery (${submittedOrder.deliveryLocation}): ৳${submittedOrder.deliveryCharge || 0}
+Total COD Amount: ৳${submittedOrder.orderAmount.toLocaleString()}
+Order Type: ${submittedOrder.orderType || 'Direct Order'}
+Reseller: ${submittedOrder.resellerName}
+Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
 
-📍 *CUSTOMER DETAILS:*
-• Name: ${submittedOrder.customerName}
-• Phone: ${submittedOrder.customerPhone}
-• Address: ${submittedOrder.customerAddress}, ${submittedOrder.thana ? submittedOrder.thana + ', ' : ''}${submittedOrder.district}
-${submittedOrder.notes ? `• Note: ${submittedOrder.notes}` : ''}
-━━━━━━━━━━━━━━━━━━━━`;
-
-    navigator.clipboard.writeText(summary);
+    navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2500);
   };
 
+  // SUCCESS VIEW
   if (submittedOrder) {
     return (
-      <div className="w-full max-w-xl mx-auto bg-white rounded-3xl border border-slate-200/80 shadow-xl shadow-slate-100 p-6 sm:p-8 text-center animate-fade-in">
-        <div className="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-emerald-100 shadow-inner">
-          <CheckCircle2 className="w-8 h-8 text-emerald-600" />
-        </div>
-
-        <h2 className="text-xl sm:text-2xl font-bold text-slate-900">Order Submitted Successfully!</h2>
-        <p className="text-xs text-slate-500 mt-1">
-          Assigned to Reseller: <strong className="text-indigo-600 font-semibold">{submittedOrder.resellerName}</strong>
-        </p>
-
-        {/* Receipt Box */}
-        <div className="mt-6 bg-slate-50 border border-slate-200/80 rounded-2xl p-5 text-left text-xs space-y-3 font-sans">
-          <div className="flex justify-between items-center pb-3 border-b border-slate-200">
-            <span className="text-slate-500 font-medium">Tracking Order ID</span>
-            <span className="font-mono font-bold text-indigo-600">{submittedOrder.id}</span>
+      <div className="max-w-2xl mx-auto p-4 sm:p-6">
+        <div id="order_success_card" className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 text-center space-y-6">
+          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+            <CheckCircle2 className="w-9 h-9" />
           </div>
 
-          <div className="flex justify-between items-center">
-            <span className="text-slate-500">Customer Name:</span>
-            <span className="font-semibold text-slate-800">{submittedOrder.customerName}</span>
-          </div>
-
-          <div className="flex justify-between items-center">
-            <span className="text-slate-500">Contact Phone:</span>
-            <span className="font-mono font-medium text-slate-800">{submittedOrder.customerPhone}</span>
-          </div>
-
-          <div className="flex justify-between items-start">
-            <span className="text-slate-500 shrink-0">Details / Address:</span>
-            <span className="font-medium text-slate-800 text-right max-w-[280px] whitespace-pre-wrap">
-              {submittedOrder.customerAddress}
+          <div>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold uppercase tracking-wider mb-2">
+              Order Placed Successfully
             </span>
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
+              ৳{submittedOrder.orderAmount.toLocaleString()} COD Confirmed
+            </h2>
+            <p className="text-sm text-slate-500 mt-1">
+              Order ID: <span className="font-mono font-bold text-slate-800">{submittedOrder.id}</span>
+            </p>
           </div>
 
-          <div className="flex justify-between items-start pt-2 border-t border-slate-200">
-            <span className="text-slate-500 shrink-0">Product:</span>
-            <span className="font-semibold text-slate-900 text-right max-w-[240px]">
-              {submittedOrder.productDetails}
-            </span>
+          {/* Breakdown Receipt */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left space-y-3 text-sm">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-200 font-semibold text-slate-700">
+              <span>Customer Details</span>
+              <span className="text-xs text-slate-500 font-mono">{submittedOrder.orderType}</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs sm:text-sm">
+              <div>
+                <span className="text-slate-500">Name:</span> <span className="font-medium text-slate-900">{submittedOrder.customerName}</span>
+              </div>
+              <div>
+                <span className="text-slate-500">Phone:</span> <span className="font-mono font-medium text-slate-900">{submittedOrder.customerPhone}</span>
+              </div>
+              <div className="sm:col-span-2">
+                <span className="text-slate-500">Address:</span> <span className="text-slate-800">{submittedOrder.customerAddress}</span>
+              </div>
+              <div>
+                <span className="text-slate-500">Location:</span> <span className="font-medium text-slate-800">{submittedOrder.deliveryLocation} ({submittedOrder.district})</span>
+              </div>
+              <div>
+                <span className="text-slate-500">Reseller:</span> <span className="font-medium text-slate-800">{submittedOrder.resellerName}</span>
+              </div>
+            </div>
+
+            {/* Products Breakdown */}
+            <div className="pt-2 border-t border-slate-200">
+              <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider block mb-1.5">Selected Products</span>
+              {submittedOrder.items && submittedOrder.items.length > 0 ? (
+                <div className="space-y-1.5">
+                  {submittedOrder.items.map((it, idx) => (
+                    <div key={idx} className="flex justify-between text-xs sm:text-sm">
+                      <span className="text-slate-700 font-medium">
+                        {it.productName} <span className="text-slate-400 font-normal">× {it.quantity}</span>
+                      </span>
+                      <span className="font-mono text-slate-900">৳{((it.unitPrice || 0) * (it.quantity || 1)).toLocaleString()}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex justify-between text-xs sm:text-sm">
+                  <span className="text-slate-700 font-medium">{submittedOrder.productDetails} (×{submittedOrder.quantity})</span>
+                  <span className="font-mono text-slate-900">৳{submittedOrder.productsTotal || submittedOrder.orderAmount}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Total Math */}
+            <div className="pt-2 border-t border-slate-200 space-y-1 text-xs">
+              <div className="flex justify-between text-slate-600">
+                <span>Products Total:</span>
+                <span className="font-mono">৳{(submittedOrder.productsTotal || submittedOrder.orderAmount).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-slate-600">
+                <span>Delivery Charge ({submittedOrder.deliveryLocation}):</span>
+                <span className="font-mono">৳{(submittedOrder.deliveryCharge || 0).toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-sm font-bold text-slate-900 pt-1 border-t border-slate-200">
+                <span>Total COD Amount:</span>
+                <span className="font-mono text-emerald-700">৳{submittedOrder.orderAmount.toLocaleString()}</span>
+              </div>
+            </div>
           </div>
 
-          <div className="flex justify-between items-center">
-            <span className="text-slate-500">Quantity:</span>
-            <span className="font-bold text-slate-900">{submittedOrder.quantity} pcs</span>
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <button
+              id="copy_order_summary_button"
+              type="button"
+              onClick={copyOrderDetails}
+              className="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl transition flex items-center justify-center gap-2 text-sm"
+            >
+              {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+              {copied ? 'Copied to Clipboard!' : 'Copy Order Invoice'}
+            </button>
+            <button
+              id="place_another_order_button"
+              type="button"
+              onClick={resetForm}
+              className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow transition flex items-center justify-center gap-2 text-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Place Another Order
+            </button>
           </div>
-
-          <div className="flex justify-between items-center pt-2 border-t border-slate-200 text-sm">
-            <span className="font-bold text-slate-900">Total COD Amount:</span>
-            <span className="font-extrabold text-indigo-600 text-base">
-              ৳{submittedOrder.orderAmount.toLocaleString('en-IN')}
-            </span>
-          </div>
-
-          <div className="flex justify-between items-center text-[11px] pt-1">
-            <span className="text-slate-500">Initial Status:</span>
-            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 font-semibold">
-              {submittedOrder.status}
-            </span>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="mt-6 flex flex-col sm:flex-row gap-3">
-          <button
-            onClick={handleCopySummary}
-            className="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition cursor-pointer"
-          >
-            <Copy className="w-4 h-4" />
-            <span>{copied ? 'Copied Details!' : 'Copy Order Text'}</span>
-          </button>
 
           {onViewMyOrders && (
             <button
+              id="view_my_orders_link"
+              type="button"
               onClick={onViewMyOrders}
-              className="flex-1 py-3 px-4 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition cursor-pointer"
+              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline transition"
             >
-              <Package className="w-4 h-4" />
-              <span>Track in My Orders</span>
+              Go to My Order History →
             </button>
           )}
-
-          <button
-            onClick={resetForm}
-            className="flex-1 py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-xl shadow-md shadow-indigo-200 flex items-center justify-center gap-2 transition cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>New Order</span>
-          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-3xl mx-auto">
-      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xl shadow-slate-100 overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-indigo-900 via-indigo-800 to-blue-900 p-6 text-white">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center border border-white/20">
-                <ShoppingBag className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-lg sm:text-xl font-bold tracking-tight">Reseller Order Entry</h1>
-                <p className="text-indigo-200 text-xs mt-0.5">
-                  Submit customer order details with live default product catalog
-                </p>
-              </div>
+    <div className="max-w-3xl mx-auto p-3 sm:p-6 space-y-5">
+      {/* Top Header Card */}
+      <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 text-white p-5 sm:p-6 rounded-2xl shadow-sm">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 bg-white/10 rounded-lg backdrop-blur">
+                <ShoppingBag className="w-5 h-5 text-emerald-200" />
+              </span>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Place Reseller Order</h1>
             </div>
-
-            {currentResellerSession && (
-              <div className="hidden sm:flex items-center gap-2 bg-white/15 backdrop-blur-md px-3.5 py-1.5 rounded-xl border border-white/20 text-xs">
-                <ShieldCheck className="w-4 h-4 text-emerald-300" />
-                <span>Reseller: <strong>{currentResellerSession.name}</strong></span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Form Container */}
-        <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-6">
-          {errorMessage && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3 text-xs text-red-700 animate-shake">
-              <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
-              <span>{errorMessage}</span>
-            </div>
-          )}
-
-          {/* Section 1: Reseller Identification */}
-          <div className="space-y-3 pb-5 border-b border-slate-100">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <User className="w-4 h-4 text-indigo-600" />
-                1. Reseller Identification <span className="text-red-500">*</span>
-              </label>
-              {currentResellerSession ? (
-                <span className="text-[11px] text-emerald-700 font-semibold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  Authenticated Reseller
-                </span>
-              ) : (
-                <span className="text-[11px] text-slate-400">Select or enter your registered account</span>
-              )}
-            </div>
-
-            {currentResellerSession ? (
-              <div className="p-4 bg-indigo-50/75 border border-indigo-200 rounded-2xl flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-xs">
-                    {currentResellerSession.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <div className="text-sm font-bold text-slate-900">{currentResellerSession.name}</div>
-                    <div className="text-xs text-indigo-700 font-mono font-medium">
-                      Phone: {currentResellerSession.phone}
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <span className="inline-block text-[11px] font-semibold text-indigo-800 bg-white px-3 py-1.5 rounded-xl shadow-xs border border-indigo-100">
-                    Locked to Your Login Info
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <select
-                  value={resellerId}
-                  onChange={(e) => setResellerId(e.target.value)}
-                  disabled={loadingData}
-                  className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 font-medium text-slate-800 transition"
-                >
-                  {resellers.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name} {r.phone ? `(${r.phone})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[11px] text-slate-400">
-                  Tip: Sign in via <strong className="text-slate-600">Reseller Login</strong> at the top bar to automatically lock and manage your submissions.
-                </p>
-              </div>
-            )}
+            <p className="text-emerald-100 text-xs sm:text-sm mt-1">
+              Add multiple products, auto-calculate delivery charges & detect repeat customers instantly.
+            </p>
           </div>
 
-          {/* Section 2: Product Selection (Default Product Highlighted) */}
-          <div className="space-y-3 pb-5 border-b border-slate-100">
-            <div className="flex items-center justify-between">
-              <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                <Tag className="w-4 h-4 text-indigo-600" />
-                2. Product Selection (Admin Managed Catalog) <span className="text-red-500">*</span>
-              </label>
-              {isDefaultActive && (
-                <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 flex items-center gap-1">
-                  <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
-                  Auto-Selected Default
-                </span>
-              )}
+          {/* Reseller Badge */}
+          {currentResellerSession ? (
+            <div className="bg-white/15 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 border border-white/20">
+              <User className="w-4 h-4 text-emerald-200" />
+              <span>Logged in as: <strong>{currentResellerSession.name}</strong></span>
             </div>
-
-            {/* Product Dropdown */}
-            <div className="space-y-2">
+          ) : (
+            <div className="w-full sm:w-auto">
+              <label className="text-xs text-emerald-100 block mb-1">Reseller Account:</label>
               <select
-                value={selectedProductId}
-                onChange={(e) => handleProductChange(e.target.value)}
-                className="w-full px-4 py-3 text-sm bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 font-medium text-slate-800 transition"
+                id="reseller_select_input"
+                value={resellerId}
+                onChange={(e) => setResellerId(e.target.value)}
+                className="bg-white/10 border border-white/20 text-white text-xs rounded-lg px-2.5 py-1.5 w-full focus:bg-slate-900"
               >
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.isDefault ? '⭐ [DEFAULT] ' : ''}{p.name} — ৳{p.price.toLocaleString('en-IN')}
+                {resellers.map((r) => (
+                  <option key={r.id} value={r.id} className="text-slate-900">
+                    {r.name} ({r.phone})
                   </option>
                 ))}
-                <option value="CUSTOM">➕ Custom / Manual Product Entry</option>
               </select>
-
-              {/* Product Info Banner */}
-              {selectedProduct && !isCustomProduct && (
-                <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-                  <div>
-                    <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                      <span>{selectedProduct.name}</span>
-                      {selectedProduct.isDefault && (
-                        <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">
-                          Default
-                        </span>
-                      )}
-                    </div>
-                    {selectedProduct.description && (
-                      <p className="text-[11px] text-slate-500 mt-0.5">{selectedProduct.description}</p>
-                    )}
-                  </div>
-                  <div className="text-right whitespace-nowrap shrink-0">
-                    <span className="text-xs text-slate-400">Unit Price: </span>
-                    <span className="text-sm font-bold text-indigo-600">৳{selectedProduct.price.toLocaleString('en-IN')}</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Custom Product Text Field */}
-              {isCustomProduct && (
-                <div className="animate-fade-in pt-1">
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Enter Custom Product Name / Details <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={customProductTitle}
-                    onChange={(e) => setCustomProductTitle(e.target.value)}
-                    placeholder="e.g. Leather Jacket (Size XL, Brown)"
-                    required
-                    className="w-full px-3.5 py-2.5 text-sm bg-white border border-indigo-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
-                  />
-                </div>
-              )}
             </div>
+          )}
+        </div>
+      </div>
 
-            {/* Quantity and Order Amount Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Order Quantity <span className="text-red-500">*</span>
-                </label>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleQuantityChange(quantity - 1)}
-                    className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-base flex items-center justify-center transition"
-                  >
-                    -
-                  </button>
-                  <input
-                    type="number"
-                    min="1"
-                    value={quantity}
-                    onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
-                    className="flex-1 text-center py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-600 font-bold"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleQuantityChange(quantity + 1)}
-                    className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-base flex items-center justify-center transition"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
+      {errorMessage && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl flex items-start gap-2 text-sm shadow-sm">
+          <AlertCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-semibold block">Validation Notice</span>
+            <span>{errorMessage}</span>
+          </div>
+        </div>
+      )}
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Total COD Order Amount (৳ BDT) <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold">৳</span>
-                  <input
-                    type="number"
-                    value={orderAmount}
-                    onChange={(e) => setOrderAmount(e.target.value)}
-                    placeholder="e.g. 1650"
-                    required
-                    min="1"
-                    className="w-full pl-8 pr-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 font-mono font-bold text-indigo-700 transition"
-                  />
-                </div>
-                {!isCustomProduct && selectedProduct && (
-                  <p className="text-[10px] text-slate-400 mt-1">
-                    Auto calculated ({quantity} × ৳{unitPrice}) — you may adjust if custom discount or shipping applies.
-                  </p>
-                )}
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* ========================================================================= */}
+        {/* SECTION 1: UNSTRUCTURED CUSTOMER DETAILS & INSTANT AUTO-ORGANIZATION */}
+        {/* ========================================================================= */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs">
+                1
               </div>
+              <h2 className="font-bold text-slate-900 text-base">Customer Details (Paste WhatsApp / FB text)</h2>
             </div>
+            <span className="text-xs text-slate-400 font-medium hidden sm:inline">Auto-Parser Active</span>
           </div>
 
-          {/* Section 3: Customer Information & Delivery Destination */}
-          <div className="space-y-4 pt-1">
-            <label className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-              <MapPin className="w-4 h-4 text-indigo-600" />
-              3. Customer & Delivery Address <span className="text-red-500">*</span>
-            </label>
+          <div>
+            <textarea
+              id="customer_full_details_textarea"
+              rows={3}
+              required
+              value={customerFullDetails}
+              onChange={(e) => handleCustomerDetailsChange(e.target.value)}
+              placeholder="Paste customer message here... E.g:&#10;Rahim, Mirpur 10, Dhaka, Washroom Rack : 1 pieces, 01712345678, COD ৳560"
+              className="w-full text-xs sm:text-sm rounded-xl border border-slate-300 p-3 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition resize-y font-mono"
+            />
+          </div>
 
-            {/* 1. Customer Full Details (Single Entry Field) */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-slate-800 flex items-center gap-1">
-                  <span>1. Customer Full Details</span>
-                  <span className="text-red-500">*</span>
-                </label>
-                <span className="text-[11px] text-slate-400">
-                  Name, phone, address, product type, quantity & COD
+          {/* Organized Customer Information Card */}
+          {organizedData && showOrganizedPreview && (
+            <div className="bg-gradient-to-br from-emerald-50/70 to-teal-50/50 border border-emerald-200 rounded-xl p-3.5 space-y-2.5 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="font-bold text-emerald-900 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-emerald-600" />
+                  Organized Customer Data
                 </span>
-              </div>
-              <textarea
-                value={customerFullDetails}
-                onChange={(e) => handleFullDetailsChange(e.target.value)}
-                placeholder={`Paste or write customer full details in one field here...\n\nExample:\nName: Mohammad Rahim\nPhone: 01712345678\nAddress: House #12, Road #4, Sector #10, Uttara, Dhaka\nProduct: Smart Watch\nQty: 1\nCOD: 1650`}
-                required
-                rows={6}
-                className="w-full px-4 py-3 text-xs sm:text-sm bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 focus:bg-white transition font-sans placeholder:text-slate-400 leading-relaxed"
-              />
-            </div>
-
-            {/* 2. Customer Phone Number */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-slate-800 flex items-center gap-1">
-                  <Phone className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>2. Customer Phone Number</span>
-                  <span className="text-red-500">*</span>
-                </label>
-                <div className="flex items-center gap-1.5">
-                  {operator && (
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${operator.color}`}>
-                      {operator.name}
-                    </span>
-                  )}
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 flex items-center gap-1">
-                    <ShieldCheck className="w-3 h-3 text-indigo-600" />
-                    Steadfast Fraud API
-                  </span>
-                </div>
-              </div>
-
-              <div className="relative flex gap-2">
-                <div className="relative flex-1">
-                  <input
-                    type="tel"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="e.g. 01712345678"
-                    required
-                    className="w-full px-4 py-2.5 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 focus:bg-white transition font-mono font-medium text-slate-800"
-                  />
-                </div>
                 <button
                   type="button"
-                  onClick={() => checkFraudForPhone(customerPhone)}
-                  disabled={checkingFraud || !customerPhone || customerPhone.replace(/[\s\-\+]/g, '').length < 10}
-                  className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl border border-slate-200 transition flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shrink-0"
-                  title="Check customer delivery ratio and merchant fraud reports with Steadfast API"
+                  onClick={applyOrganizedData}
+                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1"
                 >
-                  <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${checkingFraud ? 'animate-spin' : ''}`} />
-                  <span className="hidden sm:inline">Check Fraud</span>
+                  <Check className="w-3 h-3" /> Apply Extracted Info
                 </button>
               </div>
 
-              {/* 3. Steadfast Courier Fraud Checker Result Display */}
-              {checkingFraud && (
-                <div className="mt-2.5 p-3 bg-indigo-50/70 border border-indigo-100 rounded-2xl flex items-center gap-2.5 text-indigo-900 text-xs animate-pulse">
-                  <RefreshCw className="w-4 h-4 text-indigo-600 animate-spin shrink-0" />
-                  <div className="flex-1">
-                    <span className="font-semibold">Checking Steadfast Courier Database...</span>
-                    <span className="text-indigo-600 block text-[11px]">Analyzing delivery ratio, cancellation rate & fraud records for {customerPhone}</span>
-                  </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-white/90 p-2.5 rounded-lg border border-emerald-100">
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Name</span>
+                  <span className="font-semibold text-slate-800 truncate block">{organizedData.customerName || '—'}</span>
                 </div>
-              )}
-
-              {fraudError && !checkingFraud && (
-                <div className="mt-2.5 p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between gap-2 text-amber-900 text-xs">
-                  <div className="flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>{fraudError}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => checkFraudForPhone(customerPhone)}
-                    className="text-amber-800 font-bold underline text-[11px] hover:text-amber-950 shrink-0"
-                  >
-                    Retry
-                  </button>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Phone</span>
+                  <span className="font-mono font-bold text-slate-900 truncate block">{organizedData.customerPhone || '—'}</span>
                 </div>
-              )}
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">Location</span>
+                  <span className="font-semibold text-emerald-800 block">{organizedData.location}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">District</span>
+                  <span className="font-semibold text-slate-800 block">{organizedData.district}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
-              {fraudResult && !checkingFraud && (
-                <div
-                  className={`mt-2.5 p-3.5 rounded-2xl border transition-all ${
-                    fraudResult.riskLevel === 'fraud_alert'
-                      ? 'bg-red-50 border-red-300 text-red-950'
-                      : fraudResult.riskLevel === 'high_risk'
-                      ? 'bg-rose-50/90 border-rose-200 text-rose-950'
-                      : fraudResult.riskLevel === 'moderate'
-                      ? 'bg-amber-50/90 border-amber-200 text-amber-950'
-                      : fraudResult.riskLevel === 'safe'
-                      ? 'bg-emerald-50/90 border-emerald-200 text-emerald-950'
-                      : 'bg-slate-50 border-slate-200 text-slate-800'
-                  }`}
+          {/* Individual Customer Phone & District Fields */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                <span>Customer Phone Number *</span>
+                {operator && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold ${operator.color}`}>
+                    {operator.name}
+                  </span>
+                )}
+              </label>
+              <div className="relative">
+                <input
+                  id="customer_phone_input"
+                  type="tel"
+                  required
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="017XXXXXXXX"
+                  className="w-full text-sm rounded-xl border border-slate-300 pl-9 pr-3 py-2.5 font-mono text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+                <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1">Customer District *</label>
+              <div className="relative">
+                <select
+                  id="customer_district_select"
+                  value={district}
+                  onChange={(e) => {
+                    setDistrict(e.target.value);
+                    if (e.target.value === 'Dhaka') {
+                      handleLocationChange('Dhaka');
+                    } else if (deliveryLocation === 'Dhaka') {
+                      handleLocationChange('Other District');
+                    }
+                  }}
+                  className="w-full text-sm rounded-xl border border-slate-300 pl-9 pr-3 py-2.5 text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
                 >
-                  {/* Top Bar: Risk Level Badge & Courier Source */}
-                  <div className="flex items-center justify-between gap-2 pb-2 border-b border-black/5">
-                    <div className="flex items-center gap-1.5">
-                      {fraudResult.riskLevel === 'fraud_alert' ? (
-                        <ShieldX className="w-4 h-4 text-red-600 shrink-0" />
-                      ) : fraudResult.riskLevel === 'high_risk' ? (
-                        <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
-                      ) : fraudResult.riskLevel === 'moderate' ? (
-                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                      ) : fraudResult.riskLevel === 'safe' ? (
-                        <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                      ) : (
-                        <ShieldCheck className="w-4 h-4 text-slate-500 shrink-0" />
-                      )}
-                      <span className="font-bold text-xs">
-                        {fraudResult.riskLevel === 'fraud_alert' && '🚨 Critical Fraud Alert Flagged'}
-                        {fraudResult.riskLevel === 'high_risk' && `🔴 High Cancellation Risk (${fraudResult.deliveryRatio}% Success)`}
-                        {fraudResult.riskLevel === 'moderate' && `🟡 Moderate Risk (${fraudResult.deliveryRatio}% Success Rate)`}
-                        {fraudResult.riskLevel === 'safe' && `🟢 Trusted Buyer (${fraudResult.deliveryRatio}% Delivery Rate)`}
-                        {fraudResult.riskLevel === 'new_customer' && '⚪ New Customer (First-Time Buyer)'}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-white/80 border border-black/5 shadow-2xs">
-                        Steadfast API
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => checkFraudForPhone(customerPhone)}
-                        className="p-1 hover:bg-black/5 rounded-md transition text-slate-600"
-                        title="Refresh Fraud Check"
-                      >
-                        <RefreshCw className="w-3 h-3" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Delivery Ratio Progress Bar */}
-                  {fraudResult.totalParcels > 0 && (
-                    <div className="mt-2.5">
-                      <div className="flex justify-between text-[11px] font-semibold mb-1">
-                        <span>Courier Delivery Success Ratio</span>
-                        <span>{fraudResult.deliveryRatio}%</span>
-                      </div>
-                      <div className="w-full h-2 bg-black/10 rounded-full overflow-hidden flex">
-                        <div
-                          className={`h-full transition-all duration-500 ${
-                            fraudResult.riskLevel === 'safe'
-                              ? 'bg-emerald-500'
-                              : fraudResult.riskLevel === 'moderate'
-                              ? 'bg-amber-500'
-                              : 'bg-rose-500'
-                          }`}
-                          style={{ width: `${fraudResult.deliveryRatio}%` }}
-                        />
-                        <div
-                          className="h-full bg-rose-400/80 transition-all duration-500"
-                          style={{ width: `${fraudResult.cancelRatio}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Stats Pill Matrix */}
-                  <div className="grid grid-cols-3 gap-2 mt-2.5">
-                    <div className="p-2 bg-white/80 rounded-xl border border-black/5 text-center">
-                      <div className="text-[10px] text-slate-500 font-medium">Total Parcels</div>
-                      <div className="text-xs font-black text-slate-800 font-mono mt-0.5">
-                        {fraudResult.totalParcels}
-                      </div>
-                    </div>
-                    <div className="p-2 bg-white/80 rounded-xl border border-black/5 text-center">
-                      <div className="text-[10px] text-emerald-700 font-medium">Delivered</div>
-                      <div className="text-xs font-black text-emerald-700 font-mono mt-0.5">
-                        {fraudResult.totalDelivered}
-                      </div>
-                    </div>
-                    <div className="p-2 bg-white/80 rounded-xl border border-black/5 text-center">
-                      <div className="text-[10px] text-rose-700 font-medium">Cancelled / Return</div>
-                      <div className="text-xs font-black text-rose-700 font-mono mt-0.5">
-                        {fraudResult.totalCancelled}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Recommendation / Warning Note */}
-                  <div className="mt-2.5 text-[11px] leading-relaxed font-medium">
-                    {fraudResult.riskMessage}
-                  </div>
-                </div>
-              )}
-
-              {/* ========================================== */}
-              {/* 4. INSTANT REPEAT ORDER DETECTION AREA */}
-              {/* ========================================== */}
-              {checkingRepeat && (
-                <div className="mt-2.5 p-3 bg-blue-50/70 border border-blue-100 rounded-2xl flex items-center gap-2.5 text-blue-950 text-xs animate-pulse">
-                  <RefreshCw className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
-                  <div className="flex-1">
-                    <span className="font-semibold">Checking Repeat Order System...</span>
-                    <span className="text-blue-600 block text-[11px]">Analyzing customer order history for {customerPhone}</span>
-                  </div>
-                </div>
-              )}
-
-              {repeatOrderResult && !checkingRepeat && (
-                <div className="mt-2.5">
-                  {repeatOrderResult.isRepeat ? (
-                    <div className="p-3.5 bg-gradient-to-br from-indigo-50/90 via-blue-50/70 to-slate-50 border border-indigo-200 rounded-2xl text-slate-900 shadow-xs">
-                      {/* Top Bar: Repeat Customer Status & Toggle */}
-                      <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-indigo-100">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <div className="w-6 h-6 rounded-lg bg-indigo-600 text-white flex items-center justify-center shrink-0">
-                            <Repeat className="w-3.5 h-3.5" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-xs text-indigo-950">Repeat Order Detected</span>
-                              <span className="px-2 py-0.5 rounded-md bg-indigo-600 text-white text-[10px] font-extrabold font-mono">
-                                {repeatOrderResult.totalOrders} {repeatOrderResult.totalOrders === 1 ? 'Order' : 'Orders'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1.5">
-                          {repeatOrderResult.cancelledOrders > repeatOrderResult.deliveredOrders ? (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 border border-rose-200">
-                              ⚠️ High Cancel History
-                            </span>
-                          ) : repeatOrderResult.deliveredOrders >= 2 ? (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
-                              <UserCheck className="w-3 h-3 text-emerald-600" />
-                              Loyal Customer
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 border border-blue-200">
-                              Returning Buyer
-                            </span>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={() => setShowRepeatDetails(!showRepeatDetails)}
-                            className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-semibold rounded-lg border border-slate-200 transition flex items-center gap-1 cursor-pointer"
-                          >
-                            <History className="w-3 h-3 text-indigo-600" />
-                            <span>{showRepeatDetails ? 'Hide' : 'History'}</span>
-                            {showRepeatDetails ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Duplicate Warning Box if an order was placed recently (e.g. within 48h) */}
-                      {repeatOrderResult.duplicateWarning?.isRecentDuplicate && (
-                        <div className="mt-2.5 p-2.5 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-2 text-amber-950 text-xs">
-                          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                          <div className="flex-1">
-                            <div className="font-bold text-amber-900 flex items-center gap-1.5">
-                              <span>Potential Duplicate Order Alert</span>
-                              <span className="px-1.5 py-0.2 rounded bg-amber-200 text-amber-900 text-[10px] font-mono">
-                                Recent
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
-                              {repeatOrderResult.duplicateWarning.message}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Metrics Matrix */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2.5">
-                        <div className="p-2 bg-white/90 rounded-xl border border-indigo-100 text-center">
-                          <div className="text-[10px] text-slate-500 font-medium">Total Lifetime Orders</div>
-                          <div className="text-xs font-black text-slate-800 font-mono mt-0.5">
-                            {repeatOrderResult.totalOrders}
-                          </div>
-                        </div>
-
-                        <div className="p-2 bg-white/90 rounded-xl border border-indigo-100 text-center">
-                          <div className="text-[10px] text-emerald-700 font-medium">Delivered</div>
-                          <div className="text-xs font-black text-emerald-700 font-mono mt-0.5">
-                            {repeatOrderResult.deliveredOrders}
-                          </div>
-                        </div>
-
-                        <div className="p-2 bg-white/90 rounded-xl border border-indigo-100 text-center">
-                          <div className="text-[10px] text-rose-700 font-medium">Cancelled / Returned</div>
-                          <div className="text-xs font-black text-rose-700 font-mono mt-0.5">
-                            {repeatOrderResult.cancelledOrders}
-                          </div>
-                        </div>
-
-                        <div className="p-2 bg-white/90 rounded-xl border border-indigo-100 text-center">
-                          <div className="text-[10px] text-indigo-700 font-medium">Lifetime Spent</div>
-                          <div className="text-xs font-black text-indigo-700 font-mono mt-0.5">
-                            ৳{repeatOrderResult.totalSpent.toLocaleString('en-IN')}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Quick Snapshot of Last Order */}
-                      {repeatOrderResult.lastOrderProduct && (
-                        <div className="mt-2.5 pt-2 border-t border-indigo-100/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-[11px] text-slate-600">
-                          <div>
-                            <span className="text-slate-500 font-medium">Latest Order: </span>
-                            <span className="font-semibold text-slate-800">{repeatOrderResult.lastOrderProduct}</span>
-                            {repeatOrderResult.lastOrderStatus && (
-                              <span className={`ml-1.5 px-1.5 py-0.2 rounded text-[10px] font-bold ${
-                                repeatOrderResult.lastOrderStatus === 'Delivered'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : repeatOrderResult.lastOrderStatus === 'Cancelled'
-                                  ? 'bg-rose-100 text-rose-800'
-                                  : 'bg-amber-100 text-amber-800'
-                              }`}>
-                                {repeatOrderResult.lastOrderStatus}
-                              </span>
-                            )}
-                          </div>
-
-                          {repeatOrderResult.lastCustomerAddress && !customerAddress && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setCustomerAddress(repeatOrderResult.lastCustomerAddress || '');
-                                if (!customerFullDetails.includes(repeatOrderResult.lastCustomerAddress || '')) {
-                                  setCustomerFullDetails(prev => `${prev.trim()}\nAddress: ${repeatOrderResult.lastCustomerAddress}`);
-                                }
-                              }}
-                              className="text-indigo-600 hover:text-indigo-800 font-semibold underline text-left sm:text-right cursor-pointer"
-                              title="Click to copy previously used delivery address"
-                            >
-                              📋 Use previous address
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Expandable Order History Table / List */}
-                      {showRepeatDetails && repeatOrderResult.recentOrders.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-indigo-100 space-y-2">
-                          <div className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
-                            <span>Past Order Timeline ({repeatOrderResult.recentOrders.length})</span>
-                            <span className="text-[10px] text-slate-400 font-normal">Sorted newest first</span>
-                          </div>
-
-                          <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                            {repeatOrderResult.recentOrders.map((ord, idx) => (
-                              <div
-                                key={ord.id || idx}
-                                className="p-2.5 bg-white rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs shadow-2xs"
-                              >
-                                <div className="space-y-0.5">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-bold text-slate-900">{ord.productDetails}</span>
-                                    <span className="text-[10px] text-slate-400">({ord.quantity} pcs)</span>
-                                  </div>
-                                  <div className="text-[10px] text-slate-500 flex items-center gap-2 flex-wrap">
-                                    <span className="flex items-center gap-1">
-                                      <Clock className="w-3 h-3 text-slate-400" />
-                                      {ord.orderDate ? new Date(ord.orderDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
-                                    </span>
-                                    {ord.resellerName && (
-                                      <span>• Reseller: <strong className="text-slate-700">{ord.resellerName}</strong></span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1 shrink-0">
-                                  <span className="font-bold text-indigo-600 text-xs">
-                                    ৳{ord.orderAmount.toLocaleString('en-IN')}
-                                  </span>
-                                  <span
-                                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                      ord.status === 'Delivered'
-                                        ? 'bg-emerald-100 text-emerald-800'
-                                        : ord.status === 'Cancelled'
-                                        ? 'bg-rose-100 text-rose-800'
-                                        : ord.status === 'In Transit' || ord.status === 'Shipped'
-                                        ? 'bg-blue-100 text-blue-800'
-                                        : 'bg-amber-100 text-amber-800'
-                                    }`}
-                                  >
-                                    {ord.status}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    customerPhone.replace(/[\s\-\+]/g, '').length >= 11 && (
-                      <div className="p-3 bg-slate-50 border border-slate-200/90 rounded-2xl flex items-center justify-between gap-2 text-slate-700 text-xs">
-                        <div className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-indigo-500 shrink-0" />
-                          <span className="font-bold text-slate-800">First-Time Customer</span>
-                          <span className="text-slate-500 text-[11px] hidden sm:inline">— No prior repeat orders found for this phone number in system.</span>
-                        </div>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                          ✨ New Buyer
-                        </span>
-                      </div>
-                    )
-                  )}
-                </div>
-              )}
-
-              <p className="text-[11px] text-slate-400 mt-1">
-                Auto-extracted if phone number is pasted above, or enter manually. Steadfast fraud checker & repeat order system run automatically for phone numbers.
-              </p>
+                  {BANGLADESH_DISTRICTS.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+                <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+              </div>
             </div>
           </div>
 
-          {/* Submit Button */}
-          <div className="pt-4 border-t border-slate-100">
+          {/* ========================================================================= */}
+          {/* COURIER FRAUD CHECK & INSTANT REPEAT ORDER DETECTION DISPLAY */}
+          {/* ========================================================================= */}
+          {(checkingFraud || fraudResult || checkingRepeat || repeatOrderResult) && (
+            <div className="space-y-2.5 pt-2 border-t border-slate-100">
+              {/* Courier Delivery Performance Banner */}
+              {checkingFraud ? (
+                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2 text-xs text-slate-600">
+                  <RefreshCw className="w-4 h-4 text-emerald-600 animate-spin" />
+                  <span>Checking courier delivery score for {customerPhone}...</span>
+                </div>
+              ) : fraudResult ? (
+                <div className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
+                  fraudResult.deliveryRatio >= 75
+                    ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                    : fraudResult.deliveryRatio >= 50
+                    ? 'bg-amber-50/80 border-amber-200 text-amber-900'
+                    : 'bg-rose-50/80 border-rose-200 text-rose-900'
+                }`}>
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 shrink-0" />
+                    <div>
+                      <span className="font-bold">Courier Delivery Success: {fraudResult.deliveryRatio}%</span>
+                      <span className="block text-[11px] opacity-80">
+                        {fraudResult.totalDelivered} Delivered • {fraudResult.totalCancelled} Cancelled
+                      </span>
+                    </div>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase bg-white/70">
+                    {fraudResult.riskLevel.replace('_', ' ')}
+                  </span>
+                </div>
+              ) : null}
+
+              {/* INSTANT REPEAT ORDER DETECTION AREA */}
+              {checkingRepeat ? (
+                <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center gap-2 text-xs text-indigo-700">
+                  <RefreshCw className="w-4 h-4 text-indigo-600 animate-spin" />
+                  <span>Checking customer order history in your database...</span>
+                </div>
+              ) : repeatOrderResult ? (
+                <div
+                  id="repeat_order_detection_box"
+                  className={`p-3.5 rounded-xl border transition ${
+                    repeatOrderResult.isRepeat
+                      ? 'bg-indigo-50/80 border-indigo-200 text-indigo-950'
+                      : 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <Repeat className={`w-4 h-4 ${repeatOrderResult.isRepeat ? 'text-indigo-600' : 'text-emerald-600'}`} />
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-xs">
+                            {repeatOrderResult.isRepeat ? 'Repeat Customer Detected' : 'New Customer (1st Order)'}
+                          </span>
+                          <span
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                              repeatOrderResult.isRepeat ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white'
+                            }`}
+                          >
+                            {repeatOrderResult.totalOrders} Previous Order{repeatOrderResult.totalOrders === 1 ? '' : 's'}
+                          </span>
+                        </div>
+                        {repeatOrderResult.isRepeat && (
+                          <p className="text-[11px] text-slate-600 mt-0.5">
+                            Total Spent: <strong>৳{repeatOrderResult.totalSpent.toLocaleString()}</strong> • Delivered:{' '}
+                            <strong className="text-emerald-700">{repeatOrderResult.deliveredOrders}</strong> • Cancelled:{' '}
+                            <strong className="text-rose-700">{repeatOrderResult.cancelledOrders}</strong>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {repeatOrderResult.isRepeat && repeatOrderResult.recentOrders.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setShowRepeatDetails(!showRepeatDetails)}
+                        className="text-xs font-semibold text-indigo-700 hover:text-indigo-900 flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-indigo-200 shadow-2xs"
+                      >
+                        <History className="w-3.5 h-3.5" />
+                        {showRepeatDetails ? 'Hide' : 'History'}
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Duplicate Order Warning (Within 48h) */}
+                  {repeatOrderResult.duplicateWarning && (
+                    <div className="mt-2.5 p-2 bg-amber-100/90 border border-amber-300 rounded-lg text-amber-900 text-xs flex items-start gap-1.5">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                      <span>{repeatOrderResult.duplicateWarning.message}</span>
+                    </div>
+                  )}
+
+                  {/* Detailed History Expandable Table */}
+                  {showRepeatDetails && repeatOrderResult.recentOrders.length > 0 && (
+                    <div className="mt-3 pt-2.5 border-t border-indigo-200 space-y-1.5 text-xs">
+                      <span className="font-bold text-slate-700 block text-[11px]">Past Orders for this number:</span>
+                      <div className="max-h-36 overflow-y-auto space-y-1 pr-1">
+                        {repeatOrderResult.recentOrders.map((ord, i) => (
+                          <div key={i} className="flex justify-between items-center p-1.5 bg-white rounded border border-indigo-100 text-[11px]">
+                            <div>
+                              <span className="font-mono font-bold text-slate-800">{ord.id}</span>
+                              <span className="text-slate-500 ml-1">({new Date(ord.orderDate).toLocaleDateString()})</span>
+                              <div className="text-slate-600 truncate max-w-[200px]">{ord.productDetails}</div>
+                            </div>
+                            <div className="text-right">
+                              <span className="font-bold font-mono">৳{ord.orderAmount}</span>
+                              <span className={`block text-[10px] font-semibold ${
+                                ord.status === 'Delivered' ? 'text-emerald-600' : ord.status === 'Cancelled' ? 'text-rose-600' : 'text-amber-600'
+                              }`}>{ord.status}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
+
+        {/* ========================================================================= */}
+        {/* SECTION 2: MULTIPLE PRODUCTS IN ONE ORDER */}
+        {/* ========================================================================= */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs">
+                2
+              </div>
+              <h2 className="font-bold text-slate-900 text-base">Select Products</h2>
+            </div>
+
             <button
-              type="submit"
-              disabled={submitting}
-              className="w-full py-3.5 px-6 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-2xl shadow-lg shadow-indigo-200 flex items-center justify-center gap-2 transition disabled:opacity-50 cursor-pointer"
+              id="add_another_product_btn"
+              type="button"
+              onClick={handleAddProductRow}
+              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition active:scale-95"
             >
-              {submitting ? (
-                <span className="inline-block animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
-              ) : (
-                <>
-                  <ShoppingBag className="w-5 h-5" />
-                  <span>Submit Order to Processing</span>
-                  <ArrowRight className="w-4 h-4 ml-1" />
-                </>
-              )}
+              <Plus className="w-4 h-4" />
+              + Add Another Product
             </button>
           </div>
-        </form>
-      </div>
+
+          {/* Product Rows List */}
+          <div className="space-y-3">
+            {productRows.map((row, index) => (
+              <div
+                key={row.tempId}
+                className="p-3.5 bg-slate-50/90 border border-slate-200 rounded-xl space-y-3 relative group"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                    <Tag className="w-3.5 h-3.5 text-emerald-600" />
+                    Product #{index + 1}
+                  </span>
+
+                  {productRows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveProductRow(row.tempId)}
+                      className="text-xs text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-2 py-1 rounded-md transition flex items-center gap-1 font-semibold"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Remove
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-end">
+                  {/* Product Dropdown / Custom Name */}
+                  <div className="sm:col-span-6">
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Product Selection</label>
+                    <select
+                      id={`product_select_${index}`}
+                      value={row.isCustom ? 'CUSTOM' : row.productId}
+                      onChange={(e) => handleRowProductChange(row.tempId, e.target.value)}
+                      className="w-full text-xs sm:text-sm rounded-lg border border-slate-300 py-2 px-2.5 bg-white text-slate-800 font-medium focus:ring-2 focus:ring-emerald-500"
+                    >
+                      {products.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} (৳{p.price.toLocaleString()}) {p.isDefault ? '★ Default' : ''}
+                        </option>
+                      ))}
+                      <option value="CUSTOM">+ Custom / Other Product</option>
+                    </select>
+
+                    {row.isCustom && (
+                      <input
+                        type="text"
+                        placeholder="Enter custom product name"
+                        value={row.productName}
+                        onChange={(e) => handleRowCustomNameChange(row.tempId, e.target.value)}
+                        className="w-full mt-2 text-xs rounded-lg border border-slate-300 py-1.5 px-2.5 text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                      />
+                    )}
+                  </div>
+
+                  {/* Unit Price */}
+                  <div className="sm:col-span-3">
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Unit Price (৳)</label>
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-2 text-xs text-slate-400 font-bold">৳</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={row.unitPrice || ''}
+                        onChange={(e) => handleRowPriceChange(row.tempId, parseFloat(e.target.value) || 0)}
+                        placeholder="0"
+                        className="w-full text-xs sm:text-sm rounded-lg border border-slate-300 py-2 pl-6 pr-2 font-mono text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Quantity Counter */}
+                  <div className="sm:col-span-3">
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">Quantity</label>
+                    <div className="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => handleRowQuantityChange(row.tempId, -1)}
+                        className="w-8 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min="1"
+                        value={row.quantity}
+                        onChange={(e) => handleRowQuantityDirect(row.tempId, parseInt(e.target.value) || 1)}
+                        className="w-full text-center text-xs sm:text-sm font-bold text-slate-900 border-none focus:ring-0 p-0"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRowQuantityChange(row.tempId, 1)}
+                        className="w-8 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center text-xs pt-1 text-slate-500 font-medium">
+                  <span>Line Total:</span>
+                  <span className="font-mono font-bold text-slate-800">
+                    ৳{((row.unitPrice || 0) * (row.quantity || 1)).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Add Another Product Button Bottom */}
+          <button
+            type="button"
+            onClick={handleAddProductRow}
+            className="w-full py-2.5 border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-800 font-semibold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition"
+          >
+            <Plus className="w-4 h-4" />
+            + Add Another Product to this Order
+          </button>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* SECTION 3: DELIVERY LOCATION & DELIVERY CHARGES */}
+        {/* ========================================================================= */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs">
+              3
+            </div>
+            <h2 className="font-bold text-slate-900 text-base">Delivery Location & Charge</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+            {/* Dhaka */}
+            <button
+              type="button"
+              onClick={() => handleLocationChange('Dhaka')}
+              className={`p-3 rounded-xl border text-left transition flex items-center justify-between ${
+                deliveryLocation === 'Dhaka'
+                  ? 'border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/20'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <div>
+                <span className="font-bold text-xs sm:text-sm block">🏙️ Dhaka City</span>
+                <span className="text-[11px] text-slate-500">Inside Dhaka Area</span>
+              </div>
+              <span className="font-mono font-bold text-xs sm:text-sm text-emerald-700">৳60</span>
+            </button>
+
+            {/* Other District */}
+            <button
+              type="button"
+              onClick={() => handleLocationChange('Other District')}
+              className={`p-3 rounded-xl border text-left transition flex items-center justify-between ${
+                deliveryLocation === 'Other District'
+                  ? 'border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/20'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <div>
+                <span className="font-bold text-xs sm:text-sm block">🚚 Other District</span>
+                <span className="text-[11px] text-slate-500">Outside Dhaka</span>
+              </div>
+              <span className="font-mono font-bold text-xs sm:text-sm text-emerald-700">৳120</span>
+            </button>
+
+            {/* Free Delivery */}
+            <button
+              type="button"
+              onClick={() => handleLocationChange('Free Delivery')}
+              className={`p-3 rounded-xl border text-left transition flex items-center justify-between ${
+                deliveryLocation === 'Free Delivery'
+                  ? 'border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/20'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              <div>
+                <span className="font-bold text-xs sm:text-sm block">🎁 Free Delivery</span>
+                <span className="text-[11px] text-slate-500">Promotional ৳0 Charge</span>
+              </div>
+              <span className="font-mono font-bold text-xs sm:text-sm text-emerald-700">৳0</span>
+            </button>
+          </div>
+
+          {/* Optional Custom Delivery Charge Override */}
+          <div className="pt-1 flex items-center justify-between text-xs text-slate-600">
+            <span>Delivery Charge Applied:</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-slate-400">Custom override:</span>
+              <div className="relative w-24">
+                <span className="absolute left-2 top-1.5 text-xs text-slate-400 font-bold">৳</span>
+                <input
+                  type="number"
+                  min="0"
+                  value={deliveryCharge}
+                  onChange={(e) => {
+                    setDeliveryCharge(parseFloat(e.target.value) || 0);
+                    setIsCustomDeliveryCharge(true);
+                  }}
+                  className="w-full text-xs font-mono font-bold text-right rounded-lg border border-slate-300 py-1 pl-5 pr-2 focus:ring-1 focus:ring-emerald-500"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* SECTION 4: ORDER TYPE & EXTRA NOTES */}
+        {/* ========================================================================= */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs">
+              4
+            </div>
+            <h2 className="font-bold text-slate-900 text-base">Order Classification & Notes</h2>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Order Type *</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOrderType('Direct Order')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    orderType === 'Direct Order'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <Zap className="w-3.5 h-3.5" /> Direct Order
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOrderType('Follow-up Order')}
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                    orderType === 'Follow-up Order'
+                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  <Repeat className="w-3.5 h-3.5" /> Follow-up Order
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Special Packaging / Courier Notes</label>
+              <input
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Optional notes e.g. Deliver afternoon, call before coming"
+                className="w-full text-xs sm:text-sm rounded-xl border border-slate-300 px-3 py-2 text-slate-800 focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* ========================================================================= */}
+        {/* SECTION 5: LIVE ORDER SUMMARY & SUBMIT BUTTON */}
+        {/* ========================================================================= */}
+        <div className="bg-slate-900 text-white rounded-2xl p-5 sm:p-6 shadow-lg space-y-4">
+          <div className="flex justify-between items-center pb-3 border-b border-slate-800">
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">Order Invoice Summary</span>
+            <span className="text-xs text-slate-400 font-mono">
+              {productRows.length} Product Type{productRows.length > 1 ? 's' : ''} ({totalQuantity} items)
+            </span>
+          </div>
+
+          {/* Product Items Breakdown */}
+          <div className="space-y-1.5 text-xs text-slate-300">
+            {productRows.map((row, idx) => (
+              <div key={row.tempId} className="flex justify-between items-center">
+                <span className="truncate max-w-[220px] sm:max-w-md">
+                  Product {idx + 1}: {row.productName || 'Custom Item'} <span className="text-slate-400">Qty: {row.quantity}</span>
+                </span>
+                <span className="font-mono text-slate-200">
+                  ৳{((row.unitPrice || 0) * (row.quantity || 1)).toLocaleString()}
+                </span>
+              </div>
+            ))}
+
+            <div className="flex justify-between items-center pt-2 border-t border-slate-800 text-slate-300">
+              <span>Products Total:</span>
+              <span className="font-mono font-semibold">৳{productsTotal.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center text-slate-300">
+              <span>Delivery ({deliveryLocation}):</span>
+              <span className="font-mono font-semibold">৳{deliveryCharge.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between items-center text-base sm:text-lg font-bold text-white pt-2 border-t border-slate-700">
+              <span>Total COD Amount:</span>
+              <span className="font-mono text-emerald-400 text-xl font-extrabold">৳{finalCODTotal.toLocaleString()}</span>
+            </div>
+          </div>
+
+          <button
+            id="place_order_submit_btn"
+            type="submit"
+            disabled={submitting}
+            className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.99] text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-base disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? (
+              <>
+                <RefreshCw className="w-5 h-5 animate-spin" />
+                <span>Processing Order...</span>
+              </>
+            ) : (
+              <>
+                <ShoppingBag className="w-5 h-5" />
+                <span>Place Order • ৳{finalCODTotal.toLocaleString()}</span>
+              </>
+            )}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

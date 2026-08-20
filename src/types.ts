@@ -20,13 +20,54 @@ export interface ResellerSession {
 export interface Product {
   id: string;
   name: string;
-  price: number;
+  price: number; // Selling Price / Revenue
+  productCost?: number; // Cost of product (buying cost)
+  packagingCost?: number; // Packaging cost
+  deliveryCost?: number; // Incurred delivery expense
+  profitBeforeAdCost?: number; // Profit per unit before ad expenditure
   description?: string;
   isDefault: boolean;
   createdAt?: string;
 }
 
+export interface OrderItem {
+  productId?: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  profitBeforeAdCostPerUnit?: number;
+}
+
+export interface OrganizedCustomerData {
+  customerName?: string;
+  customerPhone?: string;
+  name?: string;
+  phone?: string;
+  cleanPhone?: string;
+  foreignPhone?: string;
+  location?: DeliveryLocationType | string;
+  locationArea?: string;
+  areaThana?: string;
+  area?: string;
+  district?: string;
+  thana?: string;
+  address?: string;
+  productName?: string;
+  product?: string;
+  quantity?: number;
+  productAmount?: number;
+  codAmount?: number;
+  cod?: number;
+  foreignNumber?: string;
+  isComplete?: boolean;
+  warning?: string;
+  rawInput?: string;
+}
+
 export type OrderStatus = 'Pending' | 'Confirmed' | 'Shipped' | 'Delivered' | 'Cancelled';
+export type OrderType = 'Direct Order' | 'Follow-up Order';
+export type DeliveryLocationType = 'Dhaka' | 'Other District' | 'Free Delivery' | 'Custom';
 
 export interface Order {
   id: string;
@@ -39,11 +80,29 @@ export interface Order {
   thana: string;
   productDetails: string;
   quantity: number;
-  orderAmount: number;
+  orderAmount: number; // Total COD (Products Total + Delivery Charge)
+  productsTotal?: number;
+  deliveryLocation?: DeliveryLocationType | string;
+  deliveryCharge?: number;
+  orderType?: OrderType;
+  items?: OrderItem[];
+  organizedCustomerData?: OrganizedCustomerData;
+  profitBeforeAdCost?: number; // Total profit for this order before ad spend
   status: OrderStatus;
   notes?: string;
   orderDate: string; // ISO string
   createdAt: string;
+}
+
+export interface AdSpendEntry {
+  id: string;
+  resellerId: string;
+  resellerName: string;
+  date: string; // YYYY-MM-DD
+  platform: 'Facebook / Meta Ads' | 'Google Ads' | 'TikTok Ads' | 'YouTube Ads' | 'Other';
+  amount: number; // BDT
+  notes?: string;
+  createdAt?: string;
 }
 
 export interface DailyWork {
@@ -66,6 +125,21 @@ export interface AdminUser {
   role: 'admin';
 }
 
+export interface ResellerProfitSummary {
+  resellerId: string;
+  resellerName: string;
+  status: 'active' | 'inactive';
+  phone?: string;
+  totalOrders: number;
+  totalProductsSold: number;
+  directOrders: number;
+  followUpOrders: number;
+  totalRevenue: number;
+  profitBeforeAdCost: number;
+  totalAdSpend: number;
+  estimatedProfit: number;
+}
+
 export interface ResellerPerformance {
   resellerId: string;
   resellerName: string;
@@ -78,6 +152,8 @@ export interface ResellerPerformance {
   averageOrderValue: number;
   roas: number; // Sales / Ad Spend
   costPerOrder: number; // Ad spend / Orders
+  profitBeforeAdCost?: number;
+  estimatedProfit?: number;
 }
 
 export interface DashboardStats {
@@ -89,12 +165,21 @@ export interface DashboardStats {
   totalWorkingHours: number;
   overallAOV: number;
   overallROAS: number;
+  // Estimated Profit & Revenue Metrics
+  totalProfitBeforeAdCost: number;
+  estimatedProfit: number;
+  totalProductsSold: number;
+  directOrdersCount: number;
+  followUpOrdersCount: number;
+  resellerProfits: ResellerProfitSummary[];
+  adSpendEntries?: AdSpendEntry[];
   salesByDate: {
     date: string;
     sales: number;
     adSpend: number;
     orders: number;
     hours: number;
+    profit?: number;
   }[];
   resellerPerformance: ResellerPerformance[];
   recentOrders: Order[];

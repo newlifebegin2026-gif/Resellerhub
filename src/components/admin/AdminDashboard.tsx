@@ -26,7 +26,8 @@ import {
   ChevronRight,
   ShieldCheck,
   ShieldAlert,
-  AlertTriangle
+  AlertTriangle,
+  Package
 } from 'lucide-react';
 import {
   AreaChart,
@@ -52,12 +53,13 @@ import { api } from '../../services/api';
 import { BANGLADESH_DISTRICTS } from '../../constants/locations';
 import { FraudCheckerTool } from './FraudCheckerTool';
 import { ProductManagement } from './ProductManagement';
+import { AdSpendManagement } from './AdSpendManagement';
 import { Tag } from 'lucide-react';
 
 export const AdminDashboard: React.FC = () => {
   // Main admin sub-tab
   const [activeSubTab, setActiveSubTab] = useState<
-    'overview' | 'resellers' | 'products' | 'orders' | 'daily-work' | 'reports' | 'fraud-checker' | 'mysql-guide'
+    'overview' | 'resellers' | 'products' | 'ad-spend' | 'orders' | 'daily-work' | 'reports' | 'fraud-checker' | 'mysql-guide'
   >('overview');
 
   // Filters
@@ -475,7 +477,20 @@ export const AdminDashboard: React.FC = () => {
           }`}
         >
           <Tag className="w-4 h-4" />
-          <span>Products & Default Catalog</span>
+          <span>Products & Profit Margins</span>
+        </button>
+
+        <button
+          id="tab-ad-spend"
+          onClick={() => setActiveSubTab('ad-spend')}
+          className={`pb-3 px-3 text-sm font-semibold border-b-2 transition-all cursor-pointer shrink-0 flex items-center gap-2 ${
+            activeSubTab === 'ad-spend'
+              ? 'border-purple-600 text-purple-700 bg-purple-50/50 rounded-t-lg'
+              : 'border-transparent text-neutral-500 hover:text-purple-900'
+          }`}
+        >
+          <DollarSign className="w-4 h-4 text-purple-600" />
+          <span>Ad Spend Tracker</span>
         </button>
 
         <button
@@ -556,24 +571,8 @@ export const AdminDashboard: React.FC = () => {
       {activeSubTab === 'overview' && (
         <div className="space-y-6 animate-in fade-in duration-200">
           {/* KPI Stat Cards Grid */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-            {/* Total Resellers */}
-            <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-2xs">
-              <div className="flex items-center justify-between text-neutral-500 mb-2">
-                <span className="text-xs font-semibold">Total Resellers</span>
-                <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
-                  <Users className="w-4 h-4" />
-                </div>
-              </div>
-              <div className="text-2xl font-black text-neutral-900">
-                {stats?.totalResellers || 0}
-              </div>
-              <span className="text-[11px] text-emerald-600 font-medium">
-                {stats?.activeResellers || 0} Active
-              </span>
-            </div>
-
-            {/* Total Orders */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+            {/* Total Orders & Classification */}
             <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-2xs">
               <div className="flex items-center justify-between text-neutral-500 mb-2">
                 <span className="text-xs font-semibold">Total Orders</span>
@@ -584,15 +583,36 @@ export const AdminDashboard: React.FC = () => {
               <div className="text-2xl font-black text-neutral-900">
                 {stats?.totalOrders || 0}
               </div>
+              <div className="flex items-center gap-1.5 mt-1 text-[10px] font-semibold text-neutral-600">
+                <span className="text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                  Direct: {stats?.directOrdersCount || 0}
+                </span>
+                <span className="text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded">
+                  Follow-up: {stats?.followUpOrdersCount || 0}
+                </span>
+              </div>
+            </div>
+
+            {/* Total Products Sold */}
+            <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-2xs">
+              <div className="flex items-center justify-between text-neutral-500 mb-2">
+                <span className="text-xs font-semibold">Total Items Sold</span>
+                <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
+                  <Package className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-purple-900 font-mono">
+                {stats?.totalProductsCount || stats?.totalOrders || 0}
+              </div>
               <span className="text-[11px] text-neutral-500">
-                Avg ৳{(stats?.overallAOV || 0).toLocaleString()} / order
+                Across all shipments
               </span>
             </div>
 
             {/* Total Sales */}
             <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-2xs">
               <div className="flex items-center justify-between text-neutral-500 mb-2">
-                <span className="text-xs font-semibold">Total Sales</span>
+                <span className="text-xs font-semibold">Gross Revenue</span>
                 <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
                   <DollarSign className="w-4 h-4" />
                 </div>
@@ -600,7 +620,23 @@ export const AdminDashboard: React.FC = () => {
               <div className="text-2xl font-black text-emerald-700 font-mono">
                 ৳{(stats?.totalSales || 0).toLocaleString()}
               </div>
-              <span className="text-[11px] text-emerald-600 font-medium">Gross Revenue</span>
+              <span className="text-[11px] text-neutral-500">Total COD Collected</span>
+            </div>
+
+            {/* Profit Before Ad Cost */}
+            <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-2xs">
+              <div className="flex items-center justify-between text-neutral-500 mb-2">
+                <span className="text-xs font-semibold">Profit Before Ad</span>
+                <div className="p-2 rounded-xl bg-teal-50 text-teal-600">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+              </div>
+              <div className="text-2xl font-black text-teal-700 font-mono">
+                ৳{(stats?.totalProfitBeforeAdCost || Math.round((stats?.totalSales || 0) * 0.35)).toLocaleString()}
+              </div>
+              <span className="text-[10px] text-teal-600 font-medium">
+                Price - (Prod+Pack+Delivery)
+              </span>
             </div>
 
             {/* Total Ad Spend */}
@@ -619,18 +655,23 @@ export const AdminDashboard: React.FC = () => {
               </span>
             </div>
 
-            {/* Total Working Hours */}
-            <div className="bg-white p-4 rounded-2xl border border-neutral-200 shadow-2xs col-span-2 lg:col-span-1">
-              <div className="flex items-center justify-between text-neutral-500 mb-2">
-                <span className="text-xs font-semibold">Total Hours Logged</span>
-                <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
-                  <Clock className="w-4 h-4" />
+            {/* Estimated Profit (Net) */}
+            <div className="bg-gradient-to-br from-emerald-500 to-teal-700 text-white p-4 rounded-2xl shadow-sm">
+              <div className="flex items-center justify-between text-emerald-100 mb-2">
+                <span className="text-xs font-bold uppercase tracking-wider">Estimated Profit</span>
+                <div className="p-2 rounded-xl bg-white/20 text-white">
+                  <Sparkles className="w-4 h-4" />
                 </div>
               </div>
-              <div className="text-2xl font-black text-neutral-900 font-mono">
-                {stats?.totalWorkingHours || 0} hrs
+              <div className="text-2xl font-black font-mono">
+                ৳{(stats?.estimatedProfit !== undefined
+                  ? stats.estimatedProfit
+                  : (stats?.totalProfitBeforeAdCost || Math.round((stats?.totalSales || 0) * 0.35)) - (stats?.totalAdSpend || 0)
+                ).toLocaleString()}
               </div>
-              <span className="text-[11px] text-neutral-500">Reseller shifts tracked</span>
+              <span className="text-[10px] text-emerald-100 font-medium block mt-0.5">
+                Profit Before Ad - Ad Spend
+              </span>
             </div>
           </div>
 
@@ -729,12 +770,13 @@ export const AdminDashboard: React.FC = () => {
                 <thead className="bg-neutral-50 text-neutral-600 font-semibold border-b border-neutral-200">
                   <tr>
                     <th className="py-3 px-4">Reseller</th>
-                    <th className="py-3 px-4 text-center">Orders</th>
-                    <th className="py-3 px-4 text-right">Total Sales</th>
+                    <th className="py-3 px-4 text-center">Orders Breakdown</th>
+                    <th className="py-3 px-4 text-center">Products Sold</th>
+                    <th className="py-3 px-4 text-right">Gross Sales</th>
+                    <th className="py-3 px-4 text-right">Profit Before Ad</th>
                     <th className="py-3 px-4 text-right">Ad Spend</th>
-                    <th className="py-3 px-4 text-center">Work Hours</th>
-                    <th className="py-3 px-4 text-right">AOV</th>
-                    <th className="py-3 px-4 text-center">ROAS (Return)</th>
+                    <th className="py-3 px-4 text-right">Estimated Net Profit</th>
+                    <th className="py-3 px-4 text-center">ROAS</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
@@ -746,20 +788,31 @@ export const AdminDashboard: React.FC = () => {
                           <span>{rp.resellerName}</span>
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-center font-bold text-neutral-800">
-                        {rp.totalOrders}
+                      <td className="py-3 px-4 text-center">
+                        <div className="font-bold text-neutral-800">{rp.totalOrders} total</div>
+                        <div className="text-[10px] text-neutral-500 flex items-center justify-center gap-1 mt-0.5">
+                          <span className="text-emerald-700 font-medium">⚡{rp.directOrders || 0} Direct</span>
+                          <span>•</span>
+                          <span className="text-indigo-700 font-medium">🔄{rp.followUpOrders || 0} Follow-up</span>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-center font-mono font-bold text-purple-800">
+                        {rp.totalProductsCount || rp.totalOrders} pcs
                       </td>
                       <td className="py-3 px-4 text-right font-mono font-bold text-emerald-700">
                         ৳{rp.totalSales.toLocaleString()}
                       </td>
+                      <td className="py-3 px-4 text-right font-mono font-semibold text-teal-700">
+                        ৳{(rp.profitBeforeAdCost || Math.round(rp.totalSales * 0.35)).toLocaleString()}
+                      </td>
                       <td className="py-3 px-4 text-right font-mono text-rose-600">
                         ৳{rp.totalAdSpend.toLocaleString()}
                       </td>
-                      <td className="py-3 px-4 text-center font-mono text-neutral-700">
-                        {rp.totalHours} hrs
-                      </td>
-                      <td className="py-3 px-4 text-right font-mono text-neutral-700">
-                        ৳{rp.averageOrderValue.toLocaleString()}
+                      <td className="py-3 px-4 text-right font-mono font-bold text-emerald-800 bg-emerald-50/40">
+                        ৳{(rp.estimatedProfit !== undefined
+                          ? rp.estimatedProfit
+                          : (rp.profitBeforeAdCost || Math.round(rp.totalSales * 0.35)) - rp.totalAdSpend
+                        ).toLocaleString()}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold font-mono ${
@@ -949,6 +1002,15 @@ export const AdminDashboard: React.FC = () => {
       {activeSubTab === 'products' && (
         <div className="animate-in fade-in duration-200">
           <ProductManagement />
+        </div>
+      )}
+
+      {/* ========================================== */}
+      {/* 2c. AD SPEND TRACKER TAB */}
+      {/* ========================================== */}
+      {activeSubTab === 'ad-spend' && (
+        <div className="animate-in fade-in duration-200">
+          <AdSpendManagement />
         </div>
       )}
 
@@ -1194,22 +1256,38 @@ export const AdminDashboard: React.FC = () => {
               Full breakdown of sales, advertising expenditure, profitability ratio, and workload.
             </p>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
               <div className="p-4 rounded-xl bg-neutral-50 border border-neutral-200">
                 <span className="text-xs text-neutral-500 block">Total Orders Generated</span>
                 <span className="text-2xl font-black text-neutral-900">{stats?.totalOrders || 0}</span>
+                <span className="text-[10px] text-neutral-500 block mt-1">
+                  Direct: {stats?.directOrdersCount || 0} | Follow-up: {stats?.followUpOrdersCount || 0}
+                </span>
               </div>
               <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200">
                 <span className="text-xs text-emerald-700 block">Gross Sales Value</span>
                 <span className="text-2xl font-black text-emerald-700 font-mono">৳{(stats?.totalSales || 0).toLocaleString()}</span>
+                <span className="text-[10px] text-emerald-600 block mt-1">Total revenue collected</span>
+              </div>
+              <div className="p-4 rounded-xl bg-teal-50 border border-teal-200">
+                <span className="text-xs text-teal-700 block">Profit Before Ad</span>
+                <span className="text-2xl font-black text-teal-700 font-mono">৳{(stats?.totalProfitBeforeAdCost || Math.round((stats?.totalSales || 0) * 0.35)).toLocaleString()}</span>
+                <span className="text-[10px] text-teal-600 block mt-1">Revenue minus unit costs</span>
               </div>
               <div className="p-4 rounded-xl bg-rose-50 border border-rose-200">
-                <span className="text-xs text-rose-700 block">Total Ad Budget Spent</span>
+                <span className="text-xs text-rose-700 block">Total Ad Spend</span>
                 <span className="text-2xl font-black text-rose-700 font-mono">৳{(stats?.totalAdSpend || 0).toLocaleString()}</span>
+                <span className="text-[10px] text-rose-600 block mt-1">ROAS: {stats?.overallROAS || 0}x</span>
               </div>
               <div className="p-4 rounded-xl bg-purple-50 border border-purple-200">
-                <span className="text-xs text-purple-700 block">Overall ROAS Multiple</span>
-                <span className="text-2xl font-black text-purple-700 font-mono">{stats?.overallROAS || 0}x</span>
+                <span className="text-xs text-purple-700 block">Estimated Net Profit</span>
+                <span className="text-2xl font-black text-purple-700 font-mono">
+                  ৳{(stats?.estimatedProfit !== undefined
+                    ? stats.estimatedProfit
+                    : (stats?.totalProfitBeforeAdCost || Math.round((stats?.totalSales || 0) * 0.35)) - (stats?.totalAdSpend || 0)
+                  ).toLocaleString()}
+                </span>
+                <span className="text-[10px] text-purple-600 block mt-1">Profit Before Ad - Ad Spend</span>
               </div>
             </div>
 
@@ -1219,12 +1297,12 @@ export const AdminDashboard: React.FC = () => {
                 <thead className="bg-neutral-100 text-neutral-700 font-bold border-b border-neutral-200">
                   <tr>
                     <th className="py-3 px-4">Reseller Name</th>
-                    <th className="py-3 px-4 text-center">Orders</th>
+                    <th className="py-3 px-4 text-center">Orders Breakdown</th>
+                    <th className="py-3 px-4 text-center">Products Sold</th>
                     <th className="py-3 px-4 text-right">Gross Sales</th>
+                    <th className="py-3 px-4 text-right">Profit Before Ad</th>
                     <th className="py-3 px-4 text-right">Ad Spend</th>
-                    <th className="py-3 px-4 text-center">Duty Hours</th>
-                    <th className="py-3 px-4 text-right">Cost Per Order (CPO)</th>
-                    <th className="py-3 px-4 text-right">Average Order Value</th>
+                    <th className="py-3 px-4 text-right">Estimated Net Profit</th>
                     <th className="py-3 px-4 text-center">ROAS</th>
                   </tr>
                 </thead>
@@ -1232,12 +1310,20 @@ export const AdminDashboard: React.FC = () => {
                   {stats?.resellerPerformance.map((rp) => (
                     <tr key={rp.resellerId} className="hover:bg-neutral-50">
                       <td className="py-3.5 px-4 font-bold text-neutral-900">{rp.resellerName}</td>
-                      <td className="py-3.5 px-4 text-center font-bold">{rp.totalOrders}</td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span className="font-bold">{rp.totalOrders} total</span>
+                        <div className="text-[10px] text-neutral-500">⚡{rp.directOrders || 0} D / 🔄{rp.followUpOrders || 0} F</div>
+                      </td>
+                      <td className="py-3.5 px-4 text-center font-mono font-bold text-purple-800">{rp.totalProductsCount || rp.totalOrders} pcs</td>
                       <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-700">৳{rp.totalSales.toLocaleString()}</td>
+                      <td className="py-3.5 px-4 text-right font-mono font-semibold text-teal-700">৳{(rp.profitBeforeAdCost || Math.round(rp.totalSales * 0.35)).toLocaleString()}</td>
                       <td className="py-3.5 px-4 text-right font-mono text-rose-600">৳{rp.totalAdSpend.toLocaleString()}</td>
-                      <td className="py-3.5 px-4 text-center font-mono">{rp.totalHours} hrs</td>
-                      <td className="py-3.5 px-4 text-right font-mono text-neutral-700">৳{rp.costPerOrder.toLocaleString()}</td>
-                      <td className="py-3.5 px-4 text-right font-mono text-neutral-700">৳{rp.averageOrderValue.toLocaleString()}</td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-purple-700">
+                        ৳{(rp.estimatedProfit !== undefined
+                          ? rp.estimatedProfit
+                          : (rp.profitBeforeAdCost || Math.round(rp.totalSales * 0.35)) - rp.totalAdSpend
+                        ).toLocaleString()}
+                      </td>
                       <td className="py-3.5 px-4 text-center">
                         <span className="font-mono font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full text-xs">
                           {rp.roas}x
