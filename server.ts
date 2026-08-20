@@ -119,6 +119,117 @@ async function startServer() {
     }
   });
 
+  // 1c. Steadfast Courier Fraud Checker & Delivery Ratio API
+  app.get(['/api/courier/fraud-check/:phone', '/api/courier/fraud-check'], async (req, res) => {
+    try {
+      let rawPhone = (req.params.phone || req.query.phone || '') as string;
+      // Clean phone number: remove +, 88, spaces, hyphens, parentheses
+      let phone = rawPhone.replace(/[\s\-\(\)\+]/g, '');
+      if (phone.startsWith('880')) {
+        phone = '0' + phone.substring(3);
+      } else if (phone.startsWith('88')) {
+        phone = phone.substring(2);
+      }
+
+      if (!phone || phone.length < 10) {
+        res.status(400).json({ success: false, error: 'Please provide a valid 11-digit Bangladeshi mobile number.' });
+        return;
+      }
+
+      const apiKey = process.env.STEADFAST_API_KEY || '7pmatsk0szsfke9kdqlfy3uxdesvvijt';
+      const secretKey = process.env.STEADFAST_SECRET_KEY || 'h5jr5heiczfyeygdcawviixu';
+
+      // Use Packzy (Steadfast primary API server) with fallback to portal.steadfast.com.bd
+      const endpoints = [
+        `https://portal.packzy.com/api/v1/fraud_check/${phone}`,
+        `https://portal.steadfast.com.bd/api/v1/fraud_check/${phone}`,
+      ];
+
+      let responseData: any = null;
+      let lastErrorMessage = '';
+
+      for (const endpoint of endpoints) {
+        try {
+          const apiRes = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+              'Api-Key': apiKey,
+              'Secret-Key': secretKey,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            signal: AbortSignal.timeout(7000),
+          });
+
+          if (apiRes.ok) {
+            responseData = await apiRes.json();
+            break;
+          } else {
+            lastErrorMessage = `Courier API returned status ${apiRes.status}`;
+          }
+        } catch (fetchErr: any) {
+          lastErrorMessage = fetchErr.message || 'Fetch failed';
+        }
+      }
+
+      if (!responseData) {
+        res.status(502).json({
+          success: false,
+          error: 'Steadfast Courier Fraud Check service is temporarily unreachable.',
+          details: lastErrorMessage,
+        });
+        return;
+      }
+
+      const totalParcels = Number(responseData.total_parcels || 0);
+      const totalDelivered = Number(responseData.total_delivered || 0);
+      const totalCancelled = Number(responseData.total_cancelled || 0);
+      const totalFraudReports = Array.isArray(responseData.total_fraud_reports) ? responseData.total_fraud_reports : [];
+
+      const deliveryRatio = totalParcels > 0 ? Math.round((totalDelivered / totalParcels) * 100) : 0;
+      const cancelRatio = totalParcels > 0 ? Math.round((totalCancelled / totalParcels) * 100) : 0;
+
+      let riskLevel: 'safe' | 'moderate' | 'high_risk' | 'fraud_alert' | 'new_customer' = 'new_customer';
+      let riskMessage = 'New Customer — No prior courier delivery records found on Steadfast.';
+
+      if (totalFraudReports.length > 0) {
+        riskLevel = 'fraud_alert';
+        riskMessage = `CRITICAL ALERT: ${totalFraudReports.length} merchant fraud report(s) flagged against this phone number!`;
+      } else if (totalParcels === 0) {
+        riskLevel = 'new_customer';
+        riskMessage = 'New Customer — No prior delivery history found on Steadfast network.';
+      } else if (deliveryRatio >= 75) {
+        riskLevel = 'safe';
+        riskMessage = `High Delivery Ratio (${deliveryRatio}%) — Reliable buyer (${totalDelivered} delivered out of ${totalParcels}).`;
+      } else if (deliveryRatio >= 45) {
+        riskLevel = 'moderate';
+        riskMessage = `Moderate Delivery Ratio (${deliveryRatio}%) — ${totalDelivered} delivered, ${totalCancelled} returned. Confirm before shipping.`;
+      } else {
+        riskLevel = 'high_risk';
+        riskMessage = `High Cancellation Risk (${deliveryRatio}% success rate, ${totalCancelled} cancelled out of ${totalParcels}) — Recommend taking advance delivery charge!`;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          phone,
+          totalParcels,
+          totalDelivered,
+          totalCancelled,
+          totalFraudReports,
+          deliveryRatio,
+          cancelRatio,
+          riskLevel,
+          riskMessage,
+          source: 'steadfast',
+          checkedAt: new Date().toISOString(),
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
   // ==========================================
   // RESELLER AUTHENTICATION & PORTAL ROUTES
   // ==========================================
@@ -623,6 +734,112 @@ async function startServer() {
   // ==========================================
   // CUSTOMER FRAUD & COURIER VERIFICATION API
   // ==========================================
+
+  // Steadfast / Packzy Courier Fraud Check API Proxy
+  app.get('/api/courier/fraud-check/:phone', async (req, res) => {
+    try {
+      const rawPhone = req.params.phone || '';
+      let cleanedPhone = rawPhone.replace(/[\s\-\(\)\+]/g, '');
+      if (cleanedPhone.startsWith('880')) cleanedPhone = '0' + cleanedPhone.substring(3);
+      else if (cleanedPhone.startsWith('88')) cleanedPhone = cleanedPhone.substring(2);
+
+      if (!cleanedPhone || cleanedPhone.length < 10) {
+        res.status(400).json({ success: false, error: 'Valid customer phone number required.' });
+        return;
+      }
+
+      const apiKey = process.env.STEADFAST_API_KEY || '7pmatsk0szsfke9kdqlfy3uxdesvvijt';
+      const secretKey = process.env.STEADFAST_SECRET_KEY || 'h5jr5heiczfyeygdcawviixu';
+
+      let courierData: any = null;
+      const endpoints = [
+        `https://portal.packzy.com/api/v1/fraud_check/${cleanedPhone}`,
+        `https://portal.steadfast.com.bd/api/v1/fraud_check/${cleanedPhone}`,
+      ];
+
+      for (const endpoint of endpoints) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+          const response = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+              'Api-Key': apiKey,
+              'Secret-Key': secretKey,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (response.ok) {
+            const data = await response.json();
+            if (data && (data.status === 200 || data.total_parcels !== undefined || data.data !== undefined)) {
+              courierData = data.data || data;
+              break;
+            }
+          }
+        } catch (err: any) {
+          // Continue to next endpoint or fallback
+        }
+      }
+
+      const totalParcels = Number(courierData?.total_parcels ?? courierData?.total_parcel ?? 0);
+      const totalDelivered = Number(courierData?.total_delivered ?? courierData?.delivered ?? 0);
+      const totalCancelled = Number(courierData?.total_cancelled ?? courierData?.cancelled ?? 0);
+      const rawReports = courierData?.total_fraud_reports || courierData?.fraud_reports || [];
+      const totalFraudReports = Array.isArray(rawReports) ? rawReports : [];
+
+      let deliveryRatio = 0;
+      let cancelRatio = 0;
+      if (totalParcels > 0) {
+        deliveryRatio = Math.round((totalDelivered / totalParcels) * 100);
+        cancelRatio = Math.round((totalCancelled / totalParcels) * 100);
+      }
+
+      let riskLevel: 'safe' | 'moderate' | 'high_risk' | 'fraud_alert' | 'new_customer' = 'new_customer';
+      let riskMessage = '';
+
+      if (totalFraudReports.length > 0) {
+        riskLevel = 'fraud_alert';
+        riskMessage = `⚠️ Fraud Alert: This customer has ${totalFraudReports.length} merchant complaints/fraud flags reported in the Steadfast network. Exercise extreme caution.`;
+      } else if (totalParcels === 0) {
+        riskLevel = 'new_customer';
+        riskMessage = `First-time customer with no prior Steadfast courier parcel records. Call to confirm delivery address before dispatch.`;
+      } else if (deliveryRatio >= 75) {
+        riskLevel = 'safe';
+        riskMessage = `Trusted customer with ${deliveryRatio}% successful delivery rate (${totalDelivered} of ${totalParcels} parcels delivered). Safe for COD dispatch.`;
+      } else if (deliveryRatio >= 45) {
+        riskLevel = 'moderate';
+        riskMessage = `Moderate delivery rate (${deliveryRatio}% delivered, ${cancelRatio}% returned). Recommend calling customer to re-confirm order before shipping.`;
+      } else {
+        riskLevel = 'high_risk';
+        riskMessage = `High Return Risk! Customer cancelled or returned ${totalCancelled} out of ${totalParcels} orders (${cancelRatio}% return rate). Highly recommend collecting advance delivery charge.`;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          phone: cleanedPhone,
+          totalParcels,
+          totalDelivered,
+          totalCancelled,
+          deliveryRatio,
+          cancelRatio,
+          totalFraudReports,
+          riskLevel,
+          riskMessage,
+          source: 'Steadfast Courier API',
+        },
+      });
+    } catch (err: any) {
+      console.error('Steadfast Fraud Check Proxy Error:', err);
+      res.status(500).json({ success: false, error: err.message || 'Error communicating with Steadfast fraud checker.' });
+    }
+  });
 
   app.post('/api/fraud/check', async (req, res) => {
     try {

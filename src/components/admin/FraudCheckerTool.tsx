@@ -11,8 +11,12 @@ import {
   Globe,
   HelpCircle,
   Code2,
-  ExternalLink
+  ExternalLink,
+  RefreshCw,
+  TrendingUp,
 } from 'lucide-react';
+import { api } from '../../services/api';
+import { FraudCheckResult } from '../../types';
 
 export const FraudCheckerTool: React.FC = () => {
   const [phone, setPhone] = useState<string>('01712345678');
@@ -20,12 +24,14 @@ export const FraudCheckerTool: React.FC = () => {
   const [address, setAddress] = useState<string>('House 12, Road 4, Sector 7, Uttara, Dhaka');
   const [loading, setLoading] = useState<boolean>(false);
   const [report, setReport] = useState<any | null>(null);
+  const [courierResult, setCourierResult] = useState<FraudCheckResult | null>(null);
+  const [courierError, setCourierError] = useState<string | null>(null);
 
   // External API Configuration Form State
   const [apiProvider, setApiProvider] = useState<'steadfast' | 'pathao' | 'custom'>('steadfast');
-  const [apiKey, setApiKey] = useState<string>('');
-  const [secretKey, setSecretKey] = useState<string>('');
-  const [apiEndpoint, setApiEndpoint] = useState<string>('https://portal.steadfast.com.bd/api/v1/fraud_check');
+  const [apiKey, setApiKey] = useState<string>('7pmatsk0szsfke9kdqlfy3uxdesvvijt');
+  const [secretKey, setSecretKey] = useState<string>('h5jr5heiczfyeygdcawviixu');
+  const [apiEndpoint, setApiEndpoint] = useState<string>('https://portal.packzy.com/api/v1/fraud_check');
   const [saveStatus, setSaveStatus] = useState<string>('');
 
   const handleRunFraudCheck = async (e: React.FormEvent) => {
@@ -33,21 +39,30 @@ export const FraudCheckerTool: React.FC = () => {
     if (!phone) return;
 
     setLoading(true);
+    setCourierError(null);
     try {
-      const res = await fetch('/api/fraud/check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customerPhone: phone,
-          customerName,
-          customerAddress: address,
-        }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        setReport(data.fraudReport);
+      const [res, courierData] = await Promise.allSettled([
+        fetch('/api/fraud/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerPhone: phone,
+            customerName,
+            customerAddress: address,
+          }),
+        }).then(r => r.json()),
+        api.checkCourierFraud(phone),
+      ]);
+
+      if (res.status === 'fulfilled' && res.value.success) {
+        setReport(res.value.fraudReport);
       }
-    } catch (err) {
+      if (courierData.status === 'fulfilled') {
+        setCourierResult(courierData.value);
+      } else {
+        setCourierError('Steadfast API returned no record or network timeout.');
+      }
+    } catch (err: any) {
       console.error(err);
     } finally {
       setLoading(false);
@@ -151,6 +166,63 @@ export const FraudCheckerTool: React.FC = () => {
                 <span>{loading ? 'Analyzing Fraud Signals...' : 'Run Real-Time Fraud & Return Check'}</span>
               </button>
             </form>
+
+            {/* Live Steadfast Courier Result Card */}
+            {courierResult && (
+              <div
+                className={`mt-4 p-4 rounded-xl border ${
+                  courierResult.riskLevel === 'fraud_alert'
+                    ? 'bg-red-50 border-red-300 text-red-950'
+                    : courierResult.riskLevel === 'high_risk'
+                    ? 'bg-rose-50 border-rose-200 text-rose-950'
+                    : courierResult.riskLevel === 'moderate'
+                    ? 'bg-amber-50 border-amber-200 text-amber-950'
+                    : courierResult.riskLevel === 'safe'
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-950'
+                    : 'bg-slate-50 border-slate-200 text-slate-800'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2 border-b border-black/5 pb-2.5">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-indigo-600" />
+                    <div>
+                      <span className="font-bold text-xs block">
+                        Steadfast Courier Network Verification
+                      </span>
+                      <span className="text-[11px] opacity-75 font-mono">
+                        Phone: {courierResult.phone}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/90 border border-black/5 uppercase">
+                    {courierResult.riskLevel.replace(/_/g, ' ')}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-xs">
+                  <div className="bg-white/80 p-2.5 rounded-lg border border-black/5 text-center">
+                    <span className="text-[10px] text-slate-500 block">Total Parcels</span>
+                    <span className="font-bold text-slate-900 font-mono text-sm">{courierResult.totalParcels}</span>
+                  </div>
+                  <div className="bg-white/80 p-2.5 rounded-lg border border-black/5 text-center">
+                    <span className="text-[10px] text-emerald-700 block">Delivered</span>
+                    <span className="font-bold text-emerald-700 font-mono text-sm">{courierResult.totalDelivered}</span>
+                  </div>
+                  <div className="bg-white/80 p-2.5 rounded-lg border border-black/5 text-center">
+                    <span className="text-[10px] text-rose-700 block">Cancelled</span>
+                    <span className="font-bold text-rose-700 font-mono text-sm">{courierResult.totalCancelled}</span>
+                  </div>
+                  <div className="bg-white/80 p-2.5 rounded-lg border border-black/5 text-center">
+                    <span className="text-[10px] text-indigo-700 block">Delivery Ratio</span>
+                    <span className="font-bold text-indigo-700 font-mono text-sm">{courierResult.deliveryRatio}%</span>
+                  </div>
+                </div>
+
+                <p className="mt-3 text-xs leading-relaxed font-medium">
+                  {courierResult.riskMessage}
+                </p>
+              </div>
+            )}
 
             {/* Result Report Card */}
             {report && (

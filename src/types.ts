@@ -108,6 +108,20 @@ export interface GoogleUser {
   resellerId?: string;
 }
 
+export interface FraudCheckResult {
+  phone: string;
+  totalParcels: number;
+  totalDelivered: number;
+  totalCancelled: number;
+  totalFraudReports: any[];
+  deliveryRatio: number;
+  cancelRatio: number;
+  riskLevel: 'safe' | 'moderate' | 'high_risk' | 'fraud_alert' | 'new_customer';
+  riskMessage: string;
+  source: 'steadfast';
+  checkedAt: string;
+}
+
 export interface DatabaseInfo {
   type: 'firebase' | 'mysql' | 'json';
   connected: boolean;

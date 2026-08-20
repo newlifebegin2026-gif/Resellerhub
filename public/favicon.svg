@@ -1,13 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
-  <!-- Outer Blue Track -->
-  <path d="M 24 82 V 18 H 60 C 72 18 80 26 80 38 C 80 44 76 50 70 54" stroke="#2563EB" stroke-width="6.5" stroke-linecap="square" stroke-linejoin="miter"/>
-  <!-- Red Geometric Upper Core -->
-  <path d="M 33 50 V 27 H 60 C 66 27 72 32 72 38 C 72 44 67 48 60 48 H 33" stroke="#DC2626" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter"/>
-  <path d="M 33 27 L 54 48" stroke="#DC2626" stroke-width="5.5" stroke-linecap="square"/>
-  <!-- Yellow / Amber Diagonal & Lower Inner Line -->
-  <path d="M 33 82 V 56 L 62 27" stroke="#F59E0B" stroke-width="6" stroke-linecap="square" stroke-linejoin="miter"/>
-  <path d="M 43 82 V 62 L 67 38" stroke="#F59E0B" stroke-width="4" stroke-linecap="square"/>
-  <!-- Green Diagonal Right Leg Tracks -->
-  <path d="M 48 56 L 76 82" stroke="#16A34A" stroke-width="6.5" stroke-linecap="square"/>
-  <path d="M 58 48 L 86 76 C 88 78 88 82 82 82 H 72" stroke="#16A34A" stroke-width="6.5" stroke-linecap="square" stroke-linejoin="miter"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none">
+  <defs>
+    <linearGradient id="fav_top" x1="20" y1="30" x2="160" y2="90" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0B0F19" />
+      <stop offset="45%" stop-color="#1E293B" />
+      <stop offset="70%" stop-color="#334155" />
+      <stop offset="100%" stop-color="#0F172A" />
+    </linearGradient>
+    <linearGradient id="fav_pink" x1="90" y1="85" x2="185" y2="165" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#9D174D" />
+      <stop offset="50%" stop-color="#E11D48" />
+      <stop offset="100%" stop-color="#FB7185" />
+    </linearGradient>
+  </defs>
+  <path d="M 45 42 L 125 42 C 158 42 168 62 168 76 C 168 96 150 110 118 110 L 98 110 C 92 110 88 106 88 100 L 88 82 C 88 78 92 74 96 74 L 120 74 C 132 74 136 68 136 62 C 136 56 128 54 116 54 L 72 54 Z" fill="url(#fav_top)"/>
+  <path d="M 80 44 L 124 44 C 152 44 162 60 162 74 C 162 82 156 94 142 100 C 145 92 148 82 148 74 C 148 58 136 47 114 47 L 76 47 Z" fill="#FFFFFF" opacity="0.6"/>
+  <path d="M 45 42 L 78 54 L 45 74 Z" fill="#0B0F19"/>
+  <path d="M 45 74 L 88 74 L 88 118 L 45 106 Z" fill="#1E293B"/>
+  <path d="M 45 106 L 88 118 L 88 152 L 45 106 Z" fill="#090D16"/>
+  <path d="M 88 74 L 118 110 L 88 118 Z" fill="#020617"/>
+  <path d="M 92 98 L 138 142 C 146 150 156 158 168 166 L 152 168 C 136 156 122 142 110 128 L 86 104 Z" fill="url(#fav_pink)"/>
+  <path d="M 108 112 L 174 168 L 164 171 L 102 116 Z" fill="#F43F5E"/>
+  <path d="M 120 124 L 184 174 L 176 177 L 114 128 Z" fill="#FB7185"/>
 </svg>

@@ -1,4 +1,4 @@
-import { Reseller, Order, DailyWork, DashboardStats, DatabaseInfo, Product, ResellerSession } from '../types';
+import { Reseller, Order, DailyWork, DashboardStats, DatabaseInfo, Product, ResellerSession, FraudCheckResult } from '../types';
 import {
   getFirestoreProducts,
   createFirestoreProduct,
@@ -334,5 +334,18 @@ export const api = {
       dbInfo,
       mysqlSchemaSql: '-- Firebase Firestore Cloud Database Active\n-- All collections automatically synced and indexed.',
     };
+  },
+
+  // ==========================================
+  // STEADFAST COURIER FRAUD CHECKER API
+  // ==========================================
+  async checkCourierFraud(phone: string): Promise<FraudCheckResult> {
+    const cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
+    const res = await fetch(`/api/courier/fraud-check/${encodeURIComponent(cleaned)}`);
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Failed to query courier fraud checker database.');
+    }
+    return data.data;
   },
 };
