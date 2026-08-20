@@ -41,8 +41,9 @@ export const FraudCheckerTool: React.FC = () => {
     setLoading(true);
     setCourierError(null);
     try {
-      const [res, courierData] = await Promise.allSettled([
-        fetch('/api/fraud/check', {
+      let fraudEngineReport: any = null;
+      try {
+        const localRes = await fetch('/api/fraud/check', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -50,20 +51,32 @@ export const FraudCheckerTool: React.FC = () => {
             customerName,
             customerAddress: address,
           }),
-        }).then(r => r.json()),
-        api.checkCourierFraud(phone),
-      ]);
-
-      if (res.status === 'fulfilled' && res.value.success) {
-        setReport(res.value.fraudReport);
+        });
+        const text = await localRes.text();
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed && parsed.success) {
+            fraudEngineReport = parsed.fraudReport;
+          }
+        } catch {
+          // Ignore
+        }
+      } catch (err) {
+        console.warn('Local fraud engine check failed:', err);
       }
-      if (courierData.status === 'fulfilled') {
-        setCourierResult(courierData.value);
-      } else {
-        setCourierError('Steadfast API returned no record or network timeout.');
+
+      if (fraudEngineReport) {
+        setReport(fraudEngineReport);
+      }
+
+      try {
+        const courierData = await api.checkCourierFraud(phone);
+        setCourierResult(courierData);
+      } catch (cErr: any) {
+        setCourierError(cErr.message || 'Courier API offline. Local fraud report generated.');
       }
     } catch (err: any) {
-      console.error(err);
+      console.error('Fraud check tool error:', err);
     } finally {
       setLoading(false);
     }

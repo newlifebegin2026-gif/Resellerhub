@@ -118,7 +118,7 @@ export interface FraudCheckResult {
   cancelRatio: number;
   riskLevel: 'safe' | 'moderate' | 'high_risk' | 'fraud_alert' | 'new_customer';
   riskMessage: string;
-  source: 'steadfast';
+  source: string;
   checkedAt: string;
 }
 
