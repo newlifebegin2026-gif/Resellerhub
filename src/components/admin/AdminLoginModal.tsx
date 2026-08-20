@@ -71,9 +71,22 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
         {/* Login Form */}
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
-            <label htmlFor="admin-username" className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-              Admin Username
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="admin-username" className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                Admin Username
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setUsername('admin');
+                  setPassword('admin');
+                  setError(null);
+                }}
+                className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 transition cursor-pointer"
+              >
+                Auto-fill (admin / admin)
+              </button>
+            </div>
             <div className="relative">
               <input
                 id="admin-username"
@@ -81,7 +94,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter username"
+                placeholder="Enter username (e.g. admin)"
                 className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 focus:bg-white transition"
               />
               <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -99,7 +112,7 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
+                placeholder="Enter password (e.g. admin)"
                 className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 focus:bg-white transition"
               />
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />

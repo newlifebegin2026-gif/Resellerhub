@@ -622,6 +622,25 @@ export async function createFirestoreDailyWork(workData: {
   return work;
 }
 
+export async function updateFirestoreDailyWork(id: string, workData: Partial<DailyWork>): Promise<DailyWork> {
+  const docRef = doc(db, 'daily_work', id);
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) {
+    throw new Error('Daily work log not found in Firestore');
+  }
+
+  const updated = {
+    ...snap.data(),
+    ...workData,
+    ...(workData.ordersGenerated !== undefined ? { ordersGenerated: Number(workData.ordersGenerated) } : {}),
+    ...(workData.adSpend !== undefined ? { adSpend: Number(workData.adSpend) } : {}),
+    ...(workData.totalHours !== undefined ? { totalHours: Number(workData.totalHours) } : {}),
+  } as DailyWork;
+
+  await setDoc(docRef, updated, { merge: true });
+  return updated;
+}
+
 export async function deleteFirestoreDailyWork(id: string): Promise<boolean> {
   await deleteDoc(doc(db, 'daily_work', id));
   return true;
