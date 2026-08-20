@@ -47,8 +47,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-extrabold text-slate-900 text-lg tracking-tight">ResellerHub</span>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                  <Cloud className="w-2.5 h-2.5 text-emerald-600" />
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                  <Cloud className="w-2.5 h-2.5 text-blue-600" />
                   Firebase Cloud
                 </span>
               </div>
@@ -64,7 +64,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => setActiveTab('order-entry')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition cursor-pointer ${
                 activeTab === 'order-entry'
-                  ? 'bg-indigo-600 text-white shadow-xs'
+                  ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
@@ -78,7 +78,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => setActiveTab('my-orders')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition cursor-pointer ${
                 activeTab === 'my-orders'
-                  ? 'bg-indigo-600 text-white shadow-xs'
+                  ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
@@ -92,7 +92,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               onClick={() => setActiveTab('daily-work')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium transition cursor-pointer ${
                 activeTab === 'daily-work'
-                  ? 'bg-indigo-600 text-white shadow-xs'
+                  ? 'bg-blue-600 text-white shadow-xs'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
               }`}
             >
@@ -104,13 +104,13 @@ export const Navbar: React.FC<NavbarProps> = ({
 
             {/* Reseller Account Profile or Login */}
             {resellerSession ? (
-              <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-200/80 rounded-xl px-2.5 py-1.5">
-                <div className="w-6 h-6 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-bold">
+              <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200/80 rounded-xl px-2.5 py-1.5">
+                <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold">
                   {resellerSession.name.charAt(0).toUpperCase()}
                 </div>
                 <div className="hidden lg:block text-left text-xs">
                   <div className="font-bold text-slate-800 leading-tight">{resellerSession.name}</div>
-                  <div className="text-[10px] text-indigo-700 font-mono">{resellerSession.phone}</div>
+                  <div className="text-[10px] text-blue-700 font-mono">{resellerSession.phone}</div>
                 </div>
                 <button
                   onClick={onResellerLogout}
@@ -124,7 +124,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <button
                 id="btn-reseller-login"
                 onClick={onOpenResellerLogin}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 transition cursor-pointer"
               >
                 <UserCheck className="w-4 h-4" />
                 <span>Reseller Login</span>
@@ -143,7 +143,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       : 'text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200'
                   }`}
                 >
-                  <Shield className="w-4 h-4 text-emerald-500" />
+                  <Shield className="w-4 h-4 text-blue-400" />
                   <span className="hidden sm:inline">Admin Panel</span>
                 </button>
 

@@ -52,6 +52,29 @@ export const db = activeFirebaseConfig.firestoreDatabaseId
   ? getFirestore(app, activeFirebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
 
+/**
+ * Deeply sanitizes any object or array for Cloud Firestore by removing `undefined` properties
+ * and converting nested undefined values to null or omitting keys, preventing "Unsupported field value: undefined" errors.
+ */
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === null || data === undefined) {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+  if (typeof data === 'object' && !(data instanceof Date)) {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        cleaned[key] = sanitizeForFirestore(value);
+      }
+    }
+    return cleaned as T;
+  }
+  return data;
+}
+
 // Initial Seed Data if Cloud Firestore is empty
 const INITIAL_PRODUCTS: Product[] = [
   {
@@ -313,7 +336,7 @@ export async function createFirestoreProduct(productData: Partial<Product>): Pro
     await batch.commit();
   }
 
-  await setDoc(doc(db, 'products', newId), product);
+  await setDoc(doc(db, 'products', newId), sanitizeForFirestore(product));
   return product;
 }
 
@@ -356,7 +379,7 @@ export async function updateFirestoreProduct(id: string, productData: Partial<Pr
     profitBeforeAdCost,
   };
 
-  await setDoc(docRef, updated, { merge: true });
+  await setDoc(docRef, sanitizeForFirestore(updated), { merge: true });
   return updated;
 }
 
@@ -415,7 +438,7 @@ export async function createFirestoreReseller(resellerData: Partial<Reseller>): 
     notes: resellerData.notes?.trim() || '',
   };
 
-  await setDoc(doc(db, 'resellers', newId), reseller);
+  await setDoc(doc(db, 'resellers', newId), sanitizeForFirestore(reseller));
   return reseller;
 }
 
@@ -431,7 +454,7 @@ export async function updateFirestoreReseller(id: string, resellerData: Partial<
     ...resellerData,
   } as Reseller;
 
-  await setDoc(docRef, updated, { merge: true });
+  await setDoc(docRef, sanitizeForFirestore(updated), { merge: true });
   return updated;
 }
 
@@ -480,7 +503,7 @@ export async function verifyFirestoreResellerLogin(name: string, phone: string):
       notes: 'Master Administrator & Portal Operator',
     };
     try {
-      await setDoc(doc(db, 'resellers', adminReseller.id), adminReseller, { merge: true });
+      await setDoc(doc(db, 'resellers', adminReseller.id), sanitizeForFirestore(adminReseller), { merge: true });
     } catch {
       // ignore
     }
@@ -602,8 +625,15 @@ export async function createFirestoreOrder(orderData: {
     deliveryLocation: orderData.deliveryLocation || (orderData.district?.toLowerCase().includes('dhaka') ? 'Dhaka' : 'Other District'),
     deliveryCharge: orderData.deliveryCharge !== undefined ? Number(orderData.deliveryCharge) : 0,
     orderType: orderData.orderType || 'Direct Order',
-    items: orderData.items || [],
-    organizedCustomerData: orderData.organizedCustomerData,
+    items: (orderData.items || []).map((it) => ({
+      productId: it.productId || null,
+      productName: it.productName || 'Product',
+      unitPrice: Number(it.unitPrice) || 0,
+      quantity: Number(it.quantity) || 1,
+      totalPrice: Number(it.totalPrice || (it.unitPrice * (it.quantity || 1))) || 0,
+      profitBeforeAdCostPerUnit: it.profitBeforeAdCostPerUnit !== undefined ? Number(it.profitBeforeAdCostPerUnit) : Math.round((Number(it.unitPrice) || 0) * 0.35),
+    })),
+    organizedCustomerData: orderData.organizedCustomerData ? sanitizeForFirestore(orderData.organizedCustomerData) : null,
     profitBeforeAdCost: calculatedProfit,
     status: 'Pending',
     notes: orderData.notes?.trim() || '',
@@ -611,7 +641,8 @@ export async function createFirestoreOrder(orderData: {
     createdAt: new Date().toISOString(),
   };
 
-  await setDoc(doc(db, 'orders', newId), order);
+  const payload = sanitizeForFirestore(order);
+  await setDoc(doc(db, 'orders', newId), payload);
   return order;
 }
 
@@ -632,7 +663,8 @@ export async function updateFirestoreOrder(id: string, updateData: Partial<Order
     ...(updateData.productsTotal !== undefined ? { productsTotal: Number(updateData.productsTotal) } : {}),
   } as Order;
 
-  await setDoc(docRef, updated, { merge: true });
+  const payload = sanitizeForFirestore(updated);
+  await setDoc(docRef, payload, { merge: true });
   return updated;
 }
 
@@ -701,7 +733,7 @@ export async function createFirestoreAdSpend(spendData: {
     createdAt: new Date().toISOString(),
   };
 
-  await setDoc(doc(db, 'ad_spends', newId), spend);
+  await setDoc(doc(db, 'ad_spends', newId), sanitizeForFirestore(spend));
   return spend;
 }
 
@@ -718,7 +750,7 @@ export async function updateFirestoreAdSpend(id: string, spendData: Partial<AdSp
     ...(spendData.amount !== undefined ? { amount: Number(spendData.amount) } : {}),
   } as AdSpendEntry;
 
-  await setDoc(docRef, updated, { merge: true });
+  await setDoc(docRef, sanitizeForFirestore(updated), { merge: true });
   return updated;
 }
 
@@ -798,7 +830,7 @@ export async function createFirestoreDailyWork(workData: {
     createdAt: new Date().toISOString(),
   };
 
-  await setDoc(doc(db, 'daily_work', newId), work);
+  await setDoc(doc(db, 'daily_work', newId), sanitizeForFirestore(work));
   return work;
 }
 
@@ -817,7 +849,7 @@ export async function updateFirestoreDailyWork(id: string, workData: Partial<Dai
     ...(workData.totalHours !== undefined ? { totalHours: Number(workData.totalHours) } : {}),
   } as DailyWork;
 
-  await setDoc(docRef, updated, { merge: true });
+  await setDoc(docRef, sanitizeForFirestore(updated), { merge: true });
   return updated;
 }
 

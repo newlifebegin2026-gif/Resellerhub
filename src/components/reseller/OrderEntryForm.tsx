@@ -76,12 +76,12 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
-  const [district, setDistrict] = useState('Dhaka');
+  const [district, setDistrict] = useState('Other District');
   const [thana, setThana] = useState('');
   const [notes, setNotes] = useState('');
   const [orderType, setOrderType] = useState<OrderType>('Direct Order');
   
-  // Delivery Location & Charges
+  // Delivery Location & Charges (Default to Other District ৳120)
   const [deliveryLocation, setDeliveryLocation] = useState<DeliveryLocationType>('Other District');
   const [deliveryCharge, setDeliveryCharge] = useState<number>(120);
   const [isCustomDeliveryCharge, setIsCustomDeliveryCharge] = useState(false);
@@ -472,7 +472,7 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
         customerName: derivedName,
         customerPhone: customerPhone.trim(),
         customerAddress: customerFullDetails.trim(),
-        district: district || 'Dhaka',
+        district: district || (deliveryLocation === 'Dhaka' ? 'Dhaka' : 'Other District'),
         thana: thana.trim(),
         productDetails: productSummary,
         quantity: totalQuantity,
@@ -509,6 +509,10 @@ export const OrderEntryForm: React.FC<OrderEntryFormProps> = ({
     setCustomerName('');
     setCustomerPhone('');
     setCustomerAddress('');
+    setDistrict('Other District');
+    setDeliveryLocation('Other District');
+    setDeliveryCharge(120);
+    setIsCustomDeliveryCharge(false);
     setThana('');
     setNotes('');
     setOrganizedData(null);
@@ -560,12 +564,12 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
     return (
       <div className="max-w-2xl mx-auto p-4 sm:p-6">
         <div id="order_success_card" className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 text-center space-y-6">
-          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+          <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
             <CheckCircle2 className="w-9 h-9" />
           </div>
 
           <div>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-semibold uppercase tracking-wider mb-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-semibold uppercase tracking-wider mb-2">
               Order Placed Successfully
             </span>
             <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
@@ -594,7 +598,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                 <span className="text-slate-500">Address:</span> <span className="text-slate-800">{submittedOrder.customerAddress}</span>
               </div>
               <div>
-                <span className="text-slate-500">Location:</span> <span className="font-medium text-slate-800">{submittedOrder.deliveryLocation} ({submittedOrder.district})</span>
+                <span className="text-slate-500">Location:</span> <span className="font-medium text-slate-800">{submittedOrder.deliveryLocation}</span>
               </div>
               <div>
                 <span className="text-slate-500">Reseller:</span> <span className="font-medium text-slate-800">{submittedOrder.resellerName}</span>
@@ -635,7 +639,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
               </div>
               <div className="flex justify-between text-sm font-bold text-slate-900 pt-1 border-t border-slate-200">
                 <span>Total COD Amount:</span>
-                <span className="font-mono text-emerald-700">৳{submittedOrder.orderAmount.toLocaleString()}</span>
+                <span className="font-mono text-blue-700 font-bold">৳{submittedOrder.orderAmount.toLocaleString()}</span>
               </div>
             </div>
           </div>
@@ -645,16 +649,16 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
               id="copy_order_summary_button"
               type="button"
               onClick={copyOrderDetails}
-              className="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl transition flex items-center justify-center gap-2 text-sm"
+              className="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded-xl transition flex items-center justify-center gap-2 text-sm cursor-pointer"
             >
-              {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
+              {copied ? <Check className="w-4 h-4 text-blue-600" /> : <Copy className="w-4 h-4" />}
               {copied ? 'Copied to Clipboard!' : 'Copy Order Invoice'}
             </button>
             <button
               id="place_another_order_button"
               type="button"
               onClick={resetForm}
-              className="flex-1 py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-xl shadow transition flex items-center justify-center gap-2 text-sm"
+              className="flex-1 py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow transition flex items-center justify-center gap-2 text-sm cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               Place Another Order
@@ -666,7 +670,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
               id="view_my_orders_link"
               type="button"
               onClick={onViewMyOrders}
-              className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 underline transition"
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 underline transition cursor-pointer"
             >
               Go to My Order History →
             </button>
@@ -679,16 +683,16 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
   return (
     <div className="max-w-3xl mx-auto p-3 sm:p-6 space-y-5">
       {/* Top Header Card */}
-      <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 text-white p-5 sm:p-6 rounded-2xl shadow-sm">
+      <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-blue-800 text-white p-5 sm:p-6 rounded-2xl shadow-sm">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
             <div className="flex items-center gap-2">
               <span className="p-1.5 bg-white/10 rounded-lg backdrop-blur">
-                <ShoppingBag className="w-5 h-5 text-emerald-200" />
+                <ShoppingBag className="w-5 h-5 text-blue-200" />
               </span>
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Place Reseller Order</h1>
             </div>
-            <p className="text-emerald-100 text-xs sm:text-sm mt-1">
+            <p className="text-blue-100 text-xs sm:text-sm mt-1">
               Add multiple products, auto-calculate delivery charges & detect repeat customers instantly.
             </p>
           </div>
@@ -696,12 +700,12 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
           {/* Reseller Badge */}
           {currentResellerSession ? (
             <div className="bg-white/15 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2 border border-white/20">
-              <User className="w-4 h-4 text-emerald-200" />
+              <User className="w-4 h-4 text-blue-200" />
               <span>Logged in as: <strong>{currentResellerSession.name}</strong></span>
             </div>
           ) : (
             <div className="w-full sm:w-auto">
-              <label className="text-xs text-emerald-100 block mb-1">Reseller Account:</label>
+              <label className="text-xs text-blue-100 block mb-1">Reseller Account:</label>
               <select
                 id="reseller_select_input"
                 value={resellerId}
@@ -736,7 +740,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
         <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs">
                 1
               </div>
               <h2 className="font-bold text-slate-900 text-base">Customer Details (Paste WhatsApp / FB text)</h2>
@@ -752,28 +756,28 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
               value={customerFullDetails}
               onChange={(e) => handleCustomerDetailsChange(e.target.value)}
               placeholder="Paste customer message here... E.g:&#10;Rahim, Mirpur 10, Dhaka, Washroom Rack : 1 pieces, 01712345678, COD ৳560"
-              className="w-full text-xs sm:text-sm rounded-xl border border-slate-300 p-3 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition resize-y font-mono"
+              className="w-full text-xs sm:text-sm rounded-xl border border-slate-300 p-3 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition resize-y font-mono"
             />
           </div>
 
           {/* Organized Customer Information Card */}
           {organizedData && showOrganizedPreview && (
-            <div className="bg-gradient-to-br from-emerald-50/70 to-teal-50/50 border border-emerald-200 rounded-xl p-3.5 space-y-2.5 text-xs">
+            <div className="bg-gradient-to-br from-blue-50/80 to-indigo-50/60 border border-blue-200 rounded-xl p-3.5 space-y-2.5 text-xs">
               <div className="flex justify-between items-center">
-                <span className="font-bold text-emerald-900 flex items-center gap-1.5">
-                  <Sparkles className="w-4 h-4 text-emerald-600" />
+                <span className="font-bold text-blue-900 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-blue-600" />
                   Organized Customer Data
                 </span>
                 <button
                   type="button"
                   onClick={applyOrganizedData}
-                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1"
+                  className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1 cursor-pointer"
                 >
                   <Check className="w-3 h-3" /> Apply Extracted Info
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 bg-white/90 p-2.5 rounded-lg border border-emerald-100">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-white/90 p-2.5 rounded-lg border border-blue-100">
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-semibold">Name</span>
                   <span className="font-semibold text-slate-800 truncate block">{organizedData.customerName || '—'}</span>
@@ -784,65 +788,33 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                 </div>
                 <div>
                   <span className="text-slate-400 block text-[10px] uppercase font-semibold">Location</span>
-                  <span className="font-semibold text-emerald-800 block">{organizedData.location}</span>
-                </div>
-                <div>
-                  <span className="text-slate-400 block text-[10px] uppercase font-semibold">District</span>
-                  <span className="font-semibold text-slate-800 block">{organizedData.district}</span>
+                  <span className="font-semibold text-blue-800 block">{organizedData.location}</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Individual Customer Phone & District Fields */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
-                <span>Customer Phone Number *</span>
-                {operator && (
-                  <span className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold ${operator.color}`}>
-                    {operator.name}
-                  </span>
-                )}
-              </label>
-              <div className="relative">
-                <input
-                  id="customer_phone_input"
-                  type="tel"
-                  required
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                  placeholder="017XXXXXXXX"
-                  className="w-full text-sm rounded-xl border border-slate-300 pl-9 pr-3 py-2.5 font-mono text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
-                />
-                <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1">Customer District *</label>
-              <div className="relative">
-                <select
-                  id="customer_district_select"
-                  value={district}
-                  onChange={(e) => {
-                    setDistrict(e.target.value);
-                    if (e.target.value === 'Dhaka') {
-                      handleLocationChange('Dhaka');
-                    } else if (deliveryLocation === 'Dhaka') {
-                      handleLocationChange('Other District');
-                    }
-                  }}
-                  className="w-full text-sm rounded-xl border border-slate-300 pl-9 pr-3 py-2.5 text-slate-900 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 bg-white"
-                >
-                  {BANGLADESH_DISTRICTS.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-                <MapPin className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
-              </div>
+          {/* Customer Phone Field (District selection removed per user request) */}
+          <div className="pt-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center justify-between">
+              <span>Customer Phone Number *</span>
+              {operator && (
+                <span className={`text-[10px] px-2 py-0.5 rounded-md border font-semibold ${operator.color}`}>
+                  {operator.name}
+                </span>
+              )}
+            </label>
+            <div className="relative">
+              <input
+                id="customer_phone_input"
+                type="tel"
+                required
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                placeholder="017XXXXXXXX"
+                className="w-full text-sm rounded-xl border border-slate-300 pl-9 pr-3 py-2.5 font-mono text-slate-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
             </div>
           </div>
 
@@ -854,13 +826,13 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
               {/* Courier Delivery Performance Banner */}
               {checkingFraud ? (
                 <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center gap-2 text-xs text-slate-600">
-                  <RefreshCw className="w-4 h-4 text-emerald-600 animate-spin" />
+                  <RefreshCw className="w-4 h-4 text-blue-600 animate-spin" />
                   <span>Checking courier delivery score for {customerPhone}...</span>
                 </div>
               ) : fraudResult ? (
                 <div className={`p-3 rounded-xl border flex items-center justify-between text-xs ${
                   fraudResult.deliveryRatio >= 75
-                    ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                    ? 'bg-blue-50/80 border-blue-200 text-blue-900'
                     : fraudResult.deliveryRatio >= 50
                     ? 'bg-amber-50/80 border-amber-200 text-amber-900'
                     : 'bg-rose-50/80 border-rose-200 text-rose-900'
@@ -892,12 +864,12 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                   className={`p-3.5 rounded-xl border transition ${
                     repeatOrderResult.isRepeat
                       ? 'bg-indigo-50/80 border-indigo-200 text-indigo-950'
-                      : 'bg-emerald-50/70 border-emerald-200 text-emerald-950'
+                      : 'bg-blue-50/70 border-blue-200 text-blue-950'
                   }`}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                      <Repeat className={`w-4 h-4 ${repeatOrderResult.isRepeat ? 'text-indigo-600' : 'text-emerald-600'}`} />
+                      <Repeat className={`w-4 h-4 ${repeatOrderResult.isRepeat ? 'text-indigo-600' : 'text-blue-600'}`} />
                       <div>
                         <div className="flex items-center gap-1.5">
                           <span className="font-bold text-xs">
@@ -905,7 +877,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                           </span>
                           <span
                             className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                              repeatOrderResult.isRepeat ? 'bg-indigo-600 text-white' : 'bg-emerald-600 text-white'
+                              repeatOrderResult.isRepeat ? 'bg-indigo-600 text-white' : 'bg-blue-600 text-white'
                             }`}
                           >
                             {repeatOrderResult.totalOrders} Previous Order{repeatOrderResult.totalOrders === 1 ? '' : 's'}
@@ -925,7 +897,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                       <button
                         type="button"
                         onClick={() => setShowRepeatDetails(!showRepeatDetails)}
-                        className="text-xs font-semibold text-indigo-700 hover:text-indigo-900 flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-indigo-200 shadow-2xs"
+                        className="text-xs font-semibold text-indigo-700 hover:text-indigo-900 flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-indigo-200 shadow-2xs cursor-pointer"
                       >
                         <History className="w-3.5 h-3.5" />
                         {showRepeatDetails ? 'Hide' : 'History'}
@@ -976,7 +948,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
         <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs">
+              <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs">
                 2
               </div>
               <h2 className="font-bold text-slate-900 text-base">Select Products</h2>
@@ -986,7 +958,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
               id="add_another_product_btn"
               type="button"
               onClick={handleAddProductRow}
-              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition active:scale-95"
+              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-2xs transition active:scale-95 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               + Add Another Product
@@ -1002,7 +974,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
               >
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                    <Tag className="w-3.5 h-3.5 text-emerald-600" />
+                    <Tag className="w-3.5 h-3.5 text-blue-600" />
                     Product #{index + 1}
                   </span>
 
@@ -1010,7 +982,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                     <button
                       type="button"
                       onClick={() => handleRemoveProductRow(row.tempId)}
-                      className="text-xs text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-2 py-1 rounded-md transition flex items-center gap-1 font-semibold"
+                      className="text-xs text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-2 py-1 rounded-md transition flex items-center gap-1 font-semibold cursor-pointer"
                     >
                       <Trash2 className="w-3.5 h-3.5" /> Remove
                     </button>
@@ -1025,7 +997,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                       id={`product_select_${index}`}
                       value={row.isCustom ? 'CUSTOM' : row.productId}
                       onChange={(e) => handleRowProductChange(row.tempId, e.target.value)}
-                      className="w-full text-xs sm:text-sm rounded-lg border border-slate-300 py-2 px-2.5 bg-white text-slate-800 font-medium focus:ring-2 focus:ring-emerald-500"
+                      className="w-full text-xs sm:text-sm rounded-lg border border-slate-300 py-2 px-2.5 bg-white text-slate-800 font-medium focus:ring-2 focus:ring-blue-500"
                     >
                       {products.map((p) => (
                         <option key={p.id} value={p.id}>
@@ -1041,7 +1013,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                         placeholder="Enter custom product name"
                         value={row.productName}
                         onChange={(e) => handleRowCustomNameChange(row.tempId, e.target.value)}
-                        className="w-full mt-2 text-xs rounded-lg border border-slate-300 py-1.5 px-2.5 text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                        className="w-full mt-2 text-xs rounded-lg border border-slate-300 py-1.5 px-2.5 text-slate-800 focus:ring-2 focus:ring-blue-500"
                       />
                     )}
                   </div>
@@ -1057,7 +1029,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                         value={row.unitPrice || ''}
                         onChange={(e) => handleRowPriceChange(row.tempId, parseFloat(e.target.value) || 0)}
                         placeholder="0"
-                        className="w-full text-xs sm:text-sm rounded-lg border border-slate-300 py-2 pl-6 pr-2 font-mono text-slate-900 focus:ring-2 focus:ring-emerald-500"
+                        className="w-full text-xs sm:text-sm rounded-lg border border-slate-300 py-2 pl-6 pr-2 font-mono text-slate-900 focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   </div>
@@ -1069,7 +1041,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                       <button
                         type="button"
                         onClick={() => handleRowQuantityChange(row.tempId, -1)}
-                        className="w-8 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition"
+                        className="w-8 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition cursor-pointer"
                       >
                         -
                       </button>
@@ -1083,7 +1055,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                       <button
                         type="button"
                         onClick={() => handleRowQuantityChange(row.tempId, 1)}
-                        className="w-8 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition"
+                        className="w-8 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition cursor-pointer"
                       >
                         +
                       </button>
@@ -1105,7 +1077,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
           <button
             type="button"
             onClick={handleAddProductRow}
-            className="w-full py-2.5 border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-800 font-semibold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition"
+            className="w-full py-2.5 border-2 border-dashed border-blue-300 hover:border-blue-500 bg-blue-50/50 hover:bg-blue-50 text-blue-800 font-semibold rounded-xl text-xs sm:text-sm flex items-center justify-center gap-2 transition cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             + Add Another Product to this Order
@@ -1117,7 +1089,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
         {/* ========================================================================= */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-4">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs">
+            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs">
               3
             </div>
             <h2 className="font-bold text-slate-900 text-base">Delivery Location & Charge</h2>
@@ -1128,9 +1100,9 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
             <button
               type="button"
               onClick={() => handleLocationChange('Dhaka')}
-              className={`p-3 rounded-xl border text-left transition flex items-center justify-between ${
+              className={`p-3 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${
                 deliveryLocation === 'Dhaka'
-                  ? 'border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/20'
+                  ? 'border-blue-600 bg-blue-50 text-blue-950 ring-2 ring-blue-500/20'
                   : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
               }`}
             >
@@ -1138,16 +1110,16 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                 <span className="font-bold text-xs sm:text-sm block">🏙️ Dhaka City</span>
                 <span className="text-[11px] text-slate-500">Inside Dhaka Area</span>
               </div>
-              <span className="font-mono font-bold text-xs sm:text-sm text-emerald-700">৳60</span>
+              <span className="font-mono font-bold text-xs sm:text-sm text-blue-700">৳60</span>
             </button>
 
-            {/* Other District */}
+            {/* Other District (Default) */}
             <button
               type="button"
               onClick={() => handleLocationChange('Other District')}
-              className={`p-3 rounded-xl border text-left transition flex items-center justify-between ${
+              className={`p-3 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${
                 deliveryLocation === 'Other District'
-                  ? 'border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/20'
+                  ? 'border-blue-600 bg-blue-50 text-blue-950 ring-2 ring-blue-500/20'
                   : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
               }`}
             >
@@ -1155,16 +1127,16 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                 <span className="font-bold text-xs sm:text-sm block">🚚 Other District</span>
                 <span className="text-[11px] text-slate-500">Outside Dhaka</span>
               </div>
-              <span className="font-mono font-bold text-xs sm:text-sm text-emerald-700">৳120</span>
+              <span className="font-mono font-bold text-xs sm:text-sm text-blue-700">৳120</span>
             </button>
 
             {/* Free Delivery */}
             <button
               type="button"
               onClick={() => handleLocationChange('Free Delivery')}
-              className={`p-3 rounded-xl border text-left transition flex items-center justify-between ${
+              className={`p-3 rounded-xl border text-left transition flex items-center justify-between cursor-pointer ${
                 deliveryLocation === 'Free Delivery'
-                  ? 'border-emerald-600 bg-emerald-50 text-emerald-950 ring-2 ring-emerald-500/20'
+                  ? 'border-blue-600 bg-blue-50 text-blue-950 ring-2 ring-blue-500/20'
                   : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
               }`}
             >
@@ -1172,7 +1144,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                 <span className="font-bold text-xs sm:text-sm block">🎁 Free Delivery</span>
                 <span className="text-[11px] text-slate-500">Promotional ৳0 Charge</span>
               </div>
-              <span className="font-mono font-bold text-xs sm:text-sm text-emerald-700">৳0</span>
+              <span className="font-mono font-bold text-xs sm:text-sm text-blue-700">৳0</span>
             </button>
           </div>
 
@@ -1191,7 +1163,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                     setDeliveryCharge(parseFloat(e.target.value) || 0);
                     setIsCustomDeliveryCharge(true);
                   }}
-                  className="w-full text-xs font-mono font-bold text-right rounded-lg border border-slate-300 py-1 pl-5 pr-2 focus:ring-1 focus:ring-emerald-500"
+                  className="w-full text-xs font-mono font-bold text-right rounded-lg border border-slate-300 py-1 pl-5 pr-2 focus:ring-1 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -1203,7 +1175,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
         {/* ========================================================================= */}
         <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-sm space-y-4">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold text-xs">
+            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold text-xs">
               4
             </div>
             <h2 className="font-bold text-slate-900 text-base">Order Classification & Notes</h2>
@@ -1216,9 +1188,9 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                 <button
                   type="button"
                   onClick={() => setOrderType('Direct Order')}
-                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                     orderType === 'Direct Order'
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                   }`}
                 >
@@ -1227,7 +1199,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                 <button
                   type="button"
                   onClick={() => setOrderType('Follow-up Order')}
-                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                     orderType === 'Follow-up Order'
                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs'
                       : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -1245,7 +1217,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Optional notes e.g. Deliver afternoon, call before coming"
-                className="w-full text-xs sm:text-sm rounded-xl border border-slate-300 px-3 py-2 text-slate-800 focus:ring-2 focus:ring-emerald-500"
+                className="w-full text-xs sm:text-sm rounded-xl border border-slate-300 px-3 py-2 text-slate-800 focus:ring-2 focus:ring-blue-500"
               />
             </div>
           </div>
@@ -1256,7 +1228,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
         {/* ========================================================================= */}
         <div className="bg-slate-900 text-white rounded-2xl p-5 sm:p-6 shadow-lg space-y-4">
           <div className="flex justify-between items-center pb-3 border-b border-slate-800">
-            <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">Order Invoice Summary</span>
+            <span className="text-xs font-bold uppercase tracking-wider text-blue-400">Order Invoice Summary</span>
             <span className="text-xs text-slate-400 font-mono">
               {productRows.length} Product Type{productRows.length > 1 ? 's' : ''} ({totalQuantity} items)
             </span>
@@ -1285,7 +1257,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
             </div>
             <div className="flex justify-between items-center text-base sm:text-lg font-bold text-white pt-2 border-t border-slate-700">
               <span>Total COD Amount:</span>
-              <span className="font-mono text-emerald-400 text-xl font-extrabold">৳{finalCODTotal.toLocaleString()}</span>
+              <span className="font-mono text-blue-400 text-xl font-extrabold">৳{finalCODTotal.toLocaleString()}</span>
             </div>
           </div>
 
@@ -1293,7 +1265,7 @@ Date: ${new Date(submittedOrder.orderDate).toLocaleString('en-US')}`;
             id="place_order_submit_btn"
             type="submit"
             disabled={submitting}
-            className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 active:scale-[0.99] text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-base disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-4 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2 text-base disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {submitting ? (
               <>
