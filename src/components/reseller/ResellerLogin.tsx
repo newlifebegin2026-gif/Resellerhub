@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { api } from '../../services/api';
 import { ResellerSession } from '../../types';
-import { UserCheck, Phone, User, AlertCircle, ArrowRight, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Phone, User, AlertCircle, ArrowRight, ShieldCheck, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Logo } from '../Logo';
 
 interface ResellerLoginProps {
   onLoginSuccess: (session: ResellerSession) => void;
@@ -52,10 +53,10 @@ export const ResellerLogin: React.FC<ResellerLoginProps> = ({ onLoginSuccess, on
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xl shadow-slate-100 overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-br from-indigo-600 to-blue-700 p-6 text-white text-center relative">
-          <div className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mx-auto mb-3 border border-white/20">
-            <UserCheck className="w-6 h-6 text-white" />
+          <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-md border border-white/20 p-2">
+            <Logo className="w-10 h-10" />
           </div>
-          <h2 className="text-xl font-bold tracking-tight">Reseller Portal Login</h2>
+          <h2 className="text-xl font-bold tracking-tight">ResellerHub Portal</h2>
           <p className="text-blue-100 text-xs mt-1">
             Access your orders, track delivery status & submit new sales
           </p>

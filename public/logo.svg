@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Outer Blue Line & Spine -->
+  <path d="M 50 160 L 50 40 L 120 40 C 145 40 160 55 140 75" stroke="#3B82F6" stroke-width="14" />
+  
+  <!-- Red Upper Loop -->
+  <path d="M 64 60 L 115 60 C 130 60 135 72 120 80 L 70 80" stroke="#EF4444" stroke-width="12" />
+  
+  <!-- Yellow Transition & Lower Spine -->
+  <path d="M 70 80 L 115 125 L 70 125 L 70 160" stroke="#F59E0B" stroke-width="12" />
+  
+  <!-- Green Right Diagonal Leg 1 -->
+  <path d="M 120 80 L 165 140 C 170 148 165 160 150 160" stroke="#10B981" stroke-width="14" />
+  
+  <!-- Green Right Diagonal Leg 2 -->
+  <path d="M 105 110 L 140 160" stroke="#10B981" stroke-width="12" />
+</svg>

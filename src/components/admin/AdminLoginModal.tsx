@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Shield, Lock, User, X, AlertCircle } from 'lucide-react';
+import { Lock, User, X, AlertCircle } from 'lucide-react';
 import { api } from '../../services/api';
+import { Logo } from '../Logo';
 
 interface AdminLoginModalProps {
   isOpen: boolean;
@@ -51,10 +52,10 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
 
         {/* Modal Header */}
         <div className="text-center mb-6">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mx-auto mb-3">
-            <Shield className="w-6 h-6" />
+          <div className="w-14 h-14 rounded-2xl bg-white border border-slate-100 shadow-xs flex items-center justify-center mx-auto mb-3 p-2">
+            <Logo className="w-10 h-10" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900">Admin Authentication</h2>
+          <h2 className="text-xl font-bold text-slate-900">ResellerHub Admin</h2>
           <p className="text-xs text-slate-500 mt-1">
             Sign in to access reseller management, product catalog, and order dispatch status.
           </p>

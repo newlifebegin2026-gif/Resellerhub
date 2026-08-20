@@ -9,6 +9,7 @@ import {
   Cloud,
 } from 'lucide-react';
 import { ResellerSession } from '../types';
+import { Logo } from './Logo';
 
 interface NavbarProps {
   activeTab: 'order-entry' | 'my-orders' | 'daily-work' | 'admin' | 'reseller-login';
@@ -40,8 +41,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => setActiveTab(resellerSession ? 'my-orders' : 'order-entry')}
             className="flex items-center gap-3 cursor-pointer select-none"
           >
-            <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-md shadow-indigo-200 font-extrabold text-lg tracking-tight">
-              RM
+            <div className="w-10 h-10 rounded-2xl bg-white border border-slate-100 p-1 flex items-center justify-center shadow-xs shadow-slate-100">
+              <Logo className="w-8 h-8" />
             </div>
             <div>
               <div className="flex items-center gap-2">
