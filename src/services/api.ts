@@ -28,6 +28,7 @@ import {
   seedInitialSalesDataToFirestore,
   purgeAllDemoDataFromFirestore,
 } from './firebase';
+import { appendOrderToGoogleSheet, isSheetsAutoSyncEnabled, getSavedSheetsToken } from './googleSheets';
 import rawFirebaseConfig from '../../firebase-applet-config.json';
 
 export const api = {
@@ -175,9 +176,25 @@ export const api = {
     organizedCustomerData?: OrganizedCustomerData;
     profitBeforeAdCost?: number;
     notes?: string;
-  }): Promise<{ message: string; order: Order }> {
+  }): Promise<{ message: string; order: Order; sheetSync?: { success: boolean; message: string } }> {
     const order = await createFirestoreOrder(orderData);
-    return { message: 'Order submitted successfully to Cloud Firestore', order };
+
+    // If auto-sync to Google Sheets is enabled and authorized, append row instantly
+    let sheetSyncResult: { success: boolean; message: string } | undefined;
+    if (isSheetsAutoSyncEnabled() && getSavedSheetsToken()) {
+      try {
+        sheetSyncResult = await appendOrderToGoogleSheet(order);
+      } catch (sheetErr: any) {
+        console.warn('Google Sheet auto-sync notice:', sheetErr);
+        sheetSyncResult = { success: false, message: sheetErr.message };
+      }
+    }
+
+    return {
+      message: 'Order submitted successfully to Cloud Firestore',
+      order,
+      sheetSync: sheetSyncResult,
+    };
   },
 
   async submitDailyWork(workData: {
