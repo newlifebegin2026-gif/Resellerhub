@@ -295,6 +295,130 @@ async function startServer() {
   });
 
   // ==========================================
+  // INSTANT REPEAT ORDER DETECTION API
+  // ==========================================
+  app.get(['/api/orders/repeat-check/:phone', '/api/orders/repeat-check'], async (req, res) => {
+    try {
+      const rawPhone = (req.params.phone || req.query.phone || '') as string;
+      let phone = rawPhone.replace(/[\s\-\(\)\+]/g, '');
+      if (phone.startsWith('880')) {
+        phone = '0' + phone.substring(3);
+      } else if (phone.startsWith('88')) {
+        phone = '0' + phone.substring(2);
+      }
+
+      if (!phone || phone.length < 9) {
+        res.json({
+          success: true,
+          data: {
+            phone: rawPhone,
+            isRepeat: false,
+            totalOrders: 0,
+            deliveredOrders: 0,
+            cancelledOrders: 0,
+            inTransitOrders: 0,
+            pendingOrders: 0,
+            totalSpent: 0,
+            recentOrders: [],
+          },
+        });
+        return;
+      }
+
+      const allOrders = await getOrders();
+      const allResellers = await getResellers();
+      const resellerMap = new Map(allResellers.map((r) => [r.id, r.name]));
+
+      const phoneSuffix = phone.slice(-10); // Match last 10 digits for reliability
+      const customerOrders = allOrders.filter((o) => {
+        const p = (o.customerPhone || '').replace(/[\s\-\(\)\+]/g, '');
+        return p.endsWith(phoneSuffix);
+      });
+
+      // Sort newest first
+      customerOrders.sort((a, b) => {
+        const timeA = new Date(a.orderDate || a.createdAt || 0).getTime();
+        const timeB = new Date(b.orderDate || b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+
+      const totalOrders = customerOrders.length;
+      const isRepeat = totalOrders > 0;
+      const deliveredOrders = customerOrders.filter((o) => o.status === 'Delivered').length;
+      const cancelledOrders = customerOrders.filter((o) => o.status === 'Cancelled').length;
+      const inTransitOrders = customerOrders.filter((o) => (o.status as string) === 'In Transit' || o.status === 'Shipped').length;
+      const pendingOrders = customerOrders.filter((o) => o.status === 'Pending' || (o.status as string) === 'Processing' || o.status === 'Confirmed').length;
+      const totalSpent = customerOrders.reduce((sum, o) => sum + (Number(o.orderAmount) || 0), 0);
+
+      const latestOrder = customerOrders[0];
+      let duplicateWarning = undefined;
+
+      if (latestOrder) {
+        const latestTime = new Date(latestOrder.orderDate || latestOrder.createdAt || 0).getTime();
+        const now = Date.now();
+        const diffMs = now - latestTime;
+        const hoursAgo = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutesAgo = Math.floor(diffMs / (1000 * 60));
+
+        // If an order was placed within last 48 hours or is currently active
+        if (diffMs < 48 * 60 * 60 * 1000 || ['Pending', 'Confirmed', 'Processing', 'In Transit', 'Shipped'].includes(latestOrder.status as string)) {
+          const timeText = hoursAgo < 1 ? `${minutesAgo} minute(s) ago` : `${hoursAgo} hour(s) ago`;
+          const resellerLabel = resellerMap.get(latestOrder.resellerId) || latestOrder.resellerId || 'Unknown Reseller';
+          duplicateWarning = {
+            isRecentDuplicate: true,
+            hoursAgo,
+            minutesAgo,
+            message: `⚠️ Notice: An order for this phone was placed ${timeText} by "${resellerLabel}" for "${latestOrder.productDetails}" (Status: ${latestOrder.status}). Verify with customer to prevent duplicate dispatches.`,
+            recentOrderId: latestOrder.id,
+            recentOrderStatus: latestOrder.status,
+            recentOrderProduct: latestOrder.productDetails,
+          };
+        }
+      }
+
+      const recentOrders = customerOrders.slice(0, 10).map((o) => ({
+        id: o.id,
+        orderDate: o.orderDate || o.createdAt,
+        productDetails: o.productDetails,
+        quantity: o.quantity,
+        orderAmount: o.orderAmount,
+        status: o.status,
+        resellerName: resellerMap.get(o.resellerId) || o.resellerId,
+        customerAddress: o.customerAddress,
+        deliveryStatus: (o as any).deliveryStatus || o.status,
+        notes: o.notes,
+      }));
+
+      res.json({
+        success: true,
+        data: {
+          phone,
+          isRepeat,
+          totalOrders,
+          deliveredOrders,
+          cancelledOrders,
+          inTransitOrders,
+          pendingOrders,
+          totalSpent,
+          lastOrderDate: latestOrder?.orderDate || latestOrder?.createdAt,
+          lastOrderStatus: latestOrder?.status,
+          lastOrderProduct: latestOrder?.productDetails,
+          lastOrderReseller: latestOrder ? resellerMap.get(latestOrder.resellerId) || latestOrder.resellerId : undefined,
+          lastCustomerAddress: latestOrder?.customerAddress,
+          recentOrders,
+          duplicateWarning,
+        },
+      });
+    } catch (err: any) {
+      console.error('Repeat order check error:', err);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to evaluate customer repeat order history.',
+      });
+    }
+  });
+
+  // ==========================================
   // RESELLER AUTHENTICATION & PORTAL ROUTES
   // ==========================================
 

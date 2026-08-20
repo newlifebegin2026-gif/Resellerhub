@@ -14,9 +14,16 @@ import {
   ExternalLink,
   RefreshCw,
   TrendingUp,
+  Repeat,
+  History,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  UserCheck,
 } from 'lucide-react';
 import { api } from '../../services/api';
-import { FraudCheckResult } from '../../types';
+import { FraudCheckResult, RepeatOrderInfo } from '../../types';
 
 export const FraudCheckerTool: React.FC = () => {
   const [phone, setPhone] = useState<string>('01712345678');
@@ -26,6 +33,8 @@ export const FraudCheckerTool: React.FC = () => {
   const [report, setReport] = useState<any | null>(null);
   const [courierResult, setCourierResult] = useState<FraudCheckResult | null>(null);
   const [courierError, setCourierError] = useState<string | null>(null);
+  const [repeatResult, setRepeatResult] = useState<RepeatOrderInfo | null>(null);
+  const [showRepeatHistory, setShowRepeatHistory] = useState<boolean>(false);
 
   // External API Configuration Form State
   const [apiProvider, setApiProvider] = useState<'steadfast' | 'pathao' | 'custom'>('steadfast');
@@ -70,8 +79,12 @@ export const FraudCheckerTool: React.FC = () => {
       }
 
       try {
-        const courierData = await api.checkCourierFraud(phone);
-        setCourierResult(courierData);
+        const [courierData, repeatData] = await Promise.all([
+          api.checkCourierFraud(phone).catch(() => null),
+          api.checkRepeatOrders(phone).catch(() => null),
+        ]);
+        if (courierData) setCourierResult(courierData);
+        if (repeatData) setRepeatResult(repeatData);
       } catch (cErr: any) {
         setCourierError(cErr.message || 'Courier API offline. Local fraud report generated.');
       }
@@ -234,6 +247,146 @@ export const FraudCheckerTool: React.FC = () => {
                 <p className="mt-3 text-xs leading-relaxed font-medium">
                   {courierResult.riskMessage}
                 </p>
+              </div>
+            )}
+
+            {/* Repeat Order History Inspection */}
+            {repeatResult && (
+              <div className="mt-4 border border-indigo-200 rounded-2xl overflow-hidden bg-gradient-to-br from-indigo-50/80 via-blue-50/50 to-white p-4 shadow-2xs">
+                <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-indigo-100">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
+                      <Repeat className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-indigo-950">System Repeat Order Analysis</span>
+                        <span className="px-2 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-bold font-mono">
+                          {repeatResult.totalOrders} {repeatResult.totalOrders === 1 ? 'Order' : 'Orders'}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 font-mono">
+                        Phone: {repeatResult.phone}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {repeatResult.isRepeat ? (
+                      repeatResult.cancelledOrders > repeatResult.deliveredOrders ? (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 border border-rose-200">
+                          ⚠️ High Return Risk
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                          <UserCheck className="w-3 h-3 text-emerald-600" />
+                          Returning Customer
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
+                        ✨ First-Time Buyer
+                      </span>
+                    )}
+
+                    {repeatResult.isRepeat && (
+                      <button
+                        type="button"
+                        onClick={() => setShowRepeatHistory(!showRepeatHistory)}
+                        className="px-2 py-1 bg-white hover:bg-slate-100 text-slate-700 text-[11px] font-semibold rounded-lg border border-slate-200 transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <History className="w-3 h-3 text-indigo-600" />
+                        <span>{showRepeatHistory ? 'Hide' : 'History'}</span>
+                        {showRepeatHistory ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Duplicate Warning */}
+                {repeatResult.duplicateWarning?.isRecentDuplicate && (
+                  <div className="mt-3 p-2.5 bg-amber-100/90 border border-amber-300 rounded-xl flex items-start gap-2 text-amber-950 text-xs">
+                    <AlertTriangle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <div className="font-bold text-amber-900">⚠️ Potential Duplicate Order Notice</div>
+                      <p className="text-[11px] text-amber-800 mt-0.5 leading-relaxed">
+                        {repeatResult.duplicateWarning.message}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Repeat Summary Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 text-xs">
+                  <div className="bg-white p-2.5 rounded-xl border border-indigo-100 text-center">
+                    <span className="text-[10px] text-slate-500 block">Total Past Orders</span>
+                    <span className="font-bold text-slate-900 font-mono text-sm">{repeatResult.totalOrders}</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-xl border border-indigo-100 text-center">
+                    <span className="text-[10px] text-emerald-700 block">Delivered Orders</span>
+                    <span className="font-bold text-emerald-700 font-mono text-sm">{repeatResult.deliveredOrders}</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-xl border border-indigo-100 text-center">
+                    <span className="text-[10px] text-rose-700 block">Cancelled / Returns</span>
+                    <span className="font-bold text-rose-700 font-mono text-sm">{repeatResult.cancelledOrders}</span>
+                  </div>
+                  <div className="bg-white p-2.5 rounded-xl border border-indigo-100 text-center">
+                    <span className="text-[10px] text-indigo-700 block">Total Lifetime COD</span>
+                    <span className="font-bold text-indigo-700 font-mono text-sm">৳{repeatResult.totalSpent.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+
+                {/* Expandable Order Breakdown */}
+                {showRepeatHistory && repeatResult.recentOrders.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-indigo-100 space-y-2">
+                    <div className="text-[11px] font-bold text-slate-700 flex items-center justify-between">
+                      <span>Order Timeline History</span>
+                      <span className="text-[10px] text-slate-400">Newest first</span>
+                    </div>
+
+                    <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                      {repeatResult.recentOrders.map((ord, idx) => (
+                        <div
+                          key={ord.id || idx}
+                          className="p-2.5 bg-white rounded-xl border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 text-xs shadow-2xs"
+                        >
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-slate-900">{ord.productDetails}</span>
+                              <span className="text-[10px] text-slate-400">({ord.quantity} pcs)</span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-400" />
+                                {ord.orderDate ? new Date(ord.orderDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}
+                              </span>
+                              {ord.resellerName && (
+                                <span>• Reseller: <strong className="text-slate-700">{ord.resellerName}</strong></span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-1 shrink-0">
+                            <span className="font-bold text-indigo-600 text-xs">
+                              ৳{ord.orderAmount.toLocaleString('en-IN')}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                ord.status === 'Delivered'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : ord.status === 'Cancelled'
+                                  ? 'bg-rose-100 text-rose-800'
+                                  : 'bg-amber-100 text-amber-800'
+                              }`}
+                            >
+                              {ord.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

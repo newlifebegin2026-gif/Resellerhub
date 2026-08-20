@@ -1,4 +1,4 @@
-import { Reseller, Order, DailyWork, DashboardStats, DatabaseInfo, Product, ResellerSession, FraudCheckResult } from '../types';
+import { Reseller, Order, DailyWork, DashboardStats, DatabaseInfo, Product, ResellerSession, FraudCheckResult, RepeatOrderInfo } from '../types';
 import {
   getFirestoreProducts,
   createFirestoreProduct,
@@ -391,6 +391,127 @@ export const api = {
         riskMessage: 'Customer verified. Safe to proceed with normal confirmation call.',
         source: 'System Order Verification',
         checkedAt: new Date().toISOString(),
+      };
+    }
+  },
+
+  // ==========================================
+  // INSTANT REPEAT ORDER DETECTION API
+  // ==========================================
+  async checkRepeatOrders(phone: string): Promise<RepeatOrderInfo> {
+    const cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
+    if (!cleaned || cleaned.length < 8) {
+      return {
+        phone: cleaned,
+        isRepeat: false,
+        totalOrders: 0,
+        deliveredOrders: 0,
+        cancelledOrders: 0,
+        inTransitOrders: 0,
+        pendingOrders: 0,
+        totalSpent: 0,
+        recentOrders: [],
+      };
+    }
+
+    try {
+      const res = await fetch(`/api/orders/repeat-check/${encodeURIComponent(cleaned)}`);
+      const text = await res.text();
+      let data: any = null;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        // Fallback to query Firestore directly if server route has issue
+      }
+
+      if (data && data.data) {
+        return data.data;
+      }
+    } catch (err) {
+      console.warn('Backend repeat-check route fallback:', err);
+    }
+
+    // Fallback: Query Firestore orders directly for instant client calculation
+    try {
+      const allOrders = await getFirestoreOrders();
+      const phoneSuffix = cleaned.slice(-10);
+      const matched = allOrders.filter((o) => {
+        const p = (o.customerPhone || '').replace(/[\s\-\(\)\+]/g, '');
+        return p.endsWith(phoneSuffix);
+      });
+
+      matched.sort((a, b) => {
+        const timeA = new Date(a.orderDate || a.createdAt || 0).getTime();
+        const timeB = new Date(b.orderDate || b.createdAt || 0).getTime();
+        return timeB - timeA;
+      });
+
+      const totalOrders = matched.length;
+      const isRepeat = totalOrders > 0;
+      const deliveredOrders = matched.filter((o) => o.status === 'Delivered').length;
+      const cancelledOrders = matched.filter((o) => o.status === 'Cancelled').length;
+      const inTransitOrders = matched.filter((o) => (o.status as string) === 'In Transit' || o.status === 'Shipped').length;
+      const pendingOrders = matched.filter((o) => o.status === 'Pending' || (o.status as string) === 'Processing' || o.status === 'Confirmed').length;
+      const totalSpent = matched.reduce((sum, o) => sum + (Number(o.orderAmount) || 0), 0);
+      const latestOrder = matched[0];
+
+      let duplicateWarning = undefined;
+      if (latestOrder) {
+        const latestTime = new Date(latestOrder.orderDate || latestOrder.createdAt || 0).getTime();
+        const diffMs = Date.now() - latestTime;
+        const hoursAgo = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutesAgo = Math.floor(diffMs / (1000 * 60));
+        if (diffMs < 48 * 60 * 60 * 1000 || ['Pending', 'Confirmed', 'Processing', 'In Transit', 'Shipped'].includes(latestOrder.status as string)) {
+          const timeText = hoursAgo < 1 ? `${minutesAgo} minute(s) ago` : `${hoursAgo} hour(s) ago`;
+          duplicateWarning = {
+            isRecentDuplicate: true,
+            hoursAgo,
+            minutesAgo,
+            message: `⚠️ Notice: An order for this phone was placed ${timeText} for "${latestOrder.productDetails}" (Status: ${latestOrder.status}). Verify with customer to prevent duplicate dispatches.`,
+            recentOrderId: latestOrder.id,
+            recentOrderStatus: latestOrder.status,
+            recentOrderProduct: latestOrder.productDetails,
+          };
+        }
+      }
+
+      return {
+        phone: cleaned,
+        isRepeat,
+        totalOrders,
+        deliveredOrders,
+        cancelledOrders,
+        inTransitOrders,
+        pendingOrders,
+        totalSpent,
+        lastOrderDate: latestOrder?.orderDate || latestOrder?.createdAt,
+        lastOrderStatus: latestOrder?.status,
+        lastOrderProduct: latestOrder?.productDetails,
+        lastCustomerAddress: latestOrder?.customerAddress,
+        recentOrders: matched.slice(0, 10).map((o) => ({
+          id: o.id,
+          orderDate: o.orderDate || o.createdAt,
+          productDetails: o.productDetails,
+          quantity: o.quantity,
+          orderAmount: o.orderAmount,
+          status: o.status,
+          customerAddress: o.customerAddress,
+          notes: o.notes,
+        })),
+        duplicateWarning,
+      };
+    } catch (fbErr) {
+      console.error('Firestore repeat-check fallback failed:', fbErr);
+      return {
+        phone: cleaned,
+        isRepeat: false,
+        totalOrders: 0,
+        deliveredOrders: 0,
+        cancelledOrders: 0,
+        inTransitOrders: 0,
+        pendingOrders: 0,
+        totalSpent: 0,
+        recentOrders: [],
       };
     }
   },

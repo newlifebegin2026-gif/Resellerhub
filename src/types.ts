@@ -26,6 +26,8 @@ export interface Product {
   createdAt?: string;
 }
 
+export type OrderStatus = 'Pending' | 'Confirmed' | 'Shipped' | 'Delivered' | 'Cancelled';
+
 export interface Order {
   id: string;
   resellerId: string;
@@ -38,7 +40,7 @@ export interface Order {
   productDetails: string;
   quantity: number;
   orderAmount: number;
-  status: 'Pending' | 'Confirmed' | 'Shipped' | 'Delivered' | 'Cancelled';
+  status: OrderStatus;
   notes?: string;
   orderDate: string; // ISO string
   createdAt: string;
@@ -120,6 +122,45 @@ export interface FraudCheckResult {
   riskMessage: string;
   source: string;
   checkedAt: string;
+}
+
+export interface RepeatOrderItem {
+  id: string;
+  orderDate: string;
+  productDetails: string;
+  quantity: number;
+  orderAmount: number;
+  status: OrderStatus;
+  resellerName?: string;
+  customerAddress?: string;
+  deliveryStatus?: string;
+  notes?: string;
+}
+
+export interface RepeatOrderInfo {
+  phone: string;
+  isRepeat: boolean;
+  totalOrders: number;
+  deliveredOrders: number;
+  cancelledOrders: number;
+  inTransitOrders: number;
+  pendingOrders: number;
+  totalSpent: number;
+  lastOrderDate?: string;
+  lastOrderStatus?: OrderStatus;
+  lastOrderProduct?: string;
+  lastOrderReseller?: string;
+  lastCustomerAddress?: string;
+  recentOrders: RepeatOrderItem[];
+  duplicateWarning?: {
+    isRecentDuplicate: boolean;
+    hoursAgo?: number;
+    minutesAgo?: number;
+    message: string;
+    recentOrderId?: string;
+    recentOrderStatus?: OrderStatus;
+    recentOrderProduct?: string;
+  };
 }
 
 export interface DatabaseInfo {
