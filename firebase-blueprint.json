@@ -1,0 +1,76 @@
+{
+  "entities": {
+    "Reseller": {
+      "collection": "resellers",
+      "fields": {
+        "id": { "type": "string", "required": true },
+        "name": { "type": "string", "required": true },
+        "phone": { "type": "string", "required": true },
+        "email": { "type": "string", "required": false },
+        "status": { "type": "string", "required": true, "enum": ["active", "inactive"] },
+        "joinedDate": { "type": "string", "required": true },
+        "notes": { "type": "string", "required": false },
+        "createdAt": { "type": "string", "required": true }
+      }
+    },
+    "Product": {
+      "collection": "products",
+      "fields": {
+        "id": { "type": "string", "required": true },
+        "name": { "type": "string", "required": true },
+        "price": { "type": "number", "required": true },
+        "description": { "type": "string", "required": false },
+        "isDefault": { "type": "boolean", "required": true },
+        "createdAt": { "type": "string", "required": true }
+      }
+    },
+    "Order": {
+      "collection": "orders",
+      "fields": {
+        "id": { "type": "string", "required": true },
+        "resellerId": { "type": "string", "required": true },
+        "resellerName": { "type": "string", "required": true },
+        "customerName": { "type": "string", "required": true },
+        "customerPhone": { "type": "string", "required": true },
+        "customerAddress": { "type": "string", "required": true },
+        "district": { "type": "string", "required": true },
+        "thana": { "type": "string", "required": false },
+        "productDetails": { "type": "string", "required": true },
+        "quantity": { "type": "number", "required": true },
+        "orderAmount": { "type": "number", "required": true },
+        "status": { "type": "string", "required": true, "enum": ["Pending", "Confirmed", "Shipped", "Delivered", "Cancelled"] },
+        "notes": { "type": "string", "required": false },
+        "orderDate": { "type": "string", "required": true },
+        "createdAt": { "type": "string", "required": true }
+      }
+    },
+    "DailyWork": {
+      "collection": "daily_work",
+      "fields": {
+        "id": { "type": "string", "required": true },
+        "resellerId": { "type": "string", "required": true },
+        "resellerName": { "type": "string", "required": true },
+        "workDate": { "type": "string", "required": true },
+        "startTime": { "type": "string", "required": true },
+        "endTime": { "type": "string", "required": true },
+        "totalHours": { "type": "number", "required": true },
+        "ordersGenerated": { "type": "number", "required": true },
+        "adSpend": { "type": "number", "required": true },
+        "notes": { "type": "string", "required": false },
+        "createdAt": { "type": "string", "required": true }
+      }
+    },
+    "UserProfile": {
+      "collection": "users",
+      "fields": {
+        "uid": { "type": "string", "required": true },
+        "email": { "type": "string", "required": true },
+        "displayName": { "type": "string", "required": false },
+        "photoURL": { "type": "string", "required": false },
+        "role": { "type": "string", "required": true, "enum": ["admin", "reseller", "viewer"] },
+        "resellerId": { "type": "string", "required": false },
+        "lastLogin": { "type": "string", "required": true }
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "Reseller Management System",
+  "description": "A clean, responsive Reseller Management System for e-commerce with order entry, daily performance tracking, secure admin panel, analytics, and MySQL integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
