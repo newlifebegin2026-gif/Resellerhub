@@ -139,193 +139,87 @@ const INITIAL_PRODUCTS: Product[] = [
   },
 ];
 
-const INITIAL_RESELLERS: Reseller[] = [];
-
-const INITIAL_ORDERS: Order[] = [];
-
-const INITIAL_AD_SPENDS: AdSpendEntry[] = [];
-
-const INITIAL_DAILY_WORKS: DailyWork[] = [];
+const INITIAL_RESELLERS: Reseller[] = [
+  {
+    id: 'res_01',
+    name: 'Tanvir Rahman',
+    phone: '01711223344',
+    email: 'tanvir.reseller@example.com',
+    status: 'active',
+    joinedDate: '2026-01-10',
+    notes: 'Dhaka region top performer',
+  },
+  {
+    id: 'res_02',
+    name: 'Shakil Ahmed',
+    phone: '01822334455',
+    email: 'shakil.ahmed@example.com',
+    status: 'active',
+    joinedDate: '2026-01-15',
+    notes: 'Chittagong & Sylhet coverage',
+  },
+  {
+    id: 'res_03',
+    name: 'Nusrat Jahan',
+    phone: '01933445566',
+    email: 'nusrat.jahan@example.com',
+    status: 'active',
+    joinedDate: '2026-02-01',
+    notes: 'Facebook & TikTok ads specialist',
+  },
+  {
+    id: 'res_04',
+    name: 'Sadia Islam',
+    phone: '01644556677',
+    email: 'sadia.islam@example.com',
+    status: 'active',
+    joinedDate: '2026-02-12',
+    notes: 'Fashion & apparel specialist',
+  },
+  {
+    id: 'res_05',
+    name: 'Arafat Hossain',
+    phone: '01555667788',
+    email: 'arafat.hossain@example.com',
+    status: 'active',
+    joinedDate: '2026-02-20',
+    notes: 'Gadgets & accessories affiliate',
+  },
+];
 
 let isInitialized = false;
 
-const DEMO_RESELLER_IDS = ['res_01', 'res_02', 'res_03', 'res_04', 'res_05'];
-const DEMO_RESELLER_NAMES = ['Tanvir Rahman', 'Shakil Ahmed', 'Nusrat Jahan', 'Sadia Islam', 'Arafat Hossain'];
-
 /**
- * Permanently purges all demo customer orders, demo resellers, demo ad spends, and demo work shift logs from Firestore
+ * Ensures Firestore has initial catalog & resellers seeded on cloud setup
  */
-export async function purgeAllDemoDataFromFirestore(): Promise<{ deletedOrders: number; deletedResellers: number }> {
-  let deletedOrders = 0;
-  let deletedResellers = 0;
+export async function ensureFirestoreSeeded() {
+  if (isInitialized) return;
+  isInitialized = true;
   try {
-    // 1. Purge demo orders
-    const ordersRef = collection(db, 'orders');
-    const orderSnap = await getDocs(ordersRef);
-    const orderBatch = writeBatch(db);
-    let orderBatchCount = 0;
-
-    orderSnap.forEach((docSnap) => {
-      const data = docSnap.data() as Order;
-      const isDemo =
-        DEMO_RESELLER_IDS.includes(data.resellerId) ||
-        DEMO_RESELLER_NAMES.includes(data.resellerName) ||
-        docSnap.id.startsWith('ORD-2026081') ||
-        docSnap.id.startsWith('ORD-20260820-1011') ||
-        docSnap.id.startsWith('ORD-20260820-2022') ||
-        data.customerName === 'Kazi Farhan' ||
-        data.customerName === 'Arif Chowdhury' ||
-        data.customerName === 'Sultana Begum' ||
-        data.customerName === 'Mahmudul Hasan' ||
-        data.customerName === 'Tahmina Akter' ||
-        data.customerName === 'Mehedi Hasan' ||
-        data.customerName === 'Kamrul Islam' ||
-        data.customerName === 'Anowar Hossain' ||
-        data.customerName === 'Jannatul Ferdous' ||
-        data.customerName === 'Shakawat Ali' ||
-        data.customerName === 'Nasrin Sultana' ||
-        data.customerName === 'Zubair Hossain' ||
-        data.customerName === 'Shahinur Rahman' ||
-        data.customerName === 'Rashedul Karim' ||
-        data.customerName === 'Imran Nazir' ||
-        data.customerName === 'Fahim Shahriar' ||
-        data.customerName === 'Nusrat Parvin';
-
-      if (isDemo) {
-        orderBatch.delete(docSnap.ref);
-        orderBatchCount++;
-        deletedOrders++;
+    const productsRef = collection(db, 'products');
+    const prodSnap = await getDocs(productsRef);
+    if (prodSnap.empty) {
+      console.log('⚡ Seeding initial products to Cloud Firestore...');
+      const batch = writeBatch(db);
+      for (const p of INITIAL_PRODUCTS) {
+        batch.set(doc(db, 'products', p.id), p);
       }
-    });
-
-    if (orderBatchCount > 0) {
-      await orderBatch.commit();
+      await batch.commit();
     }
 
-    // 2. Purge demo resellers
     const resellersRef = collection(db, 'resellers');
     const resSnap = await getDocs(resellersRef);
-    const resBatch = writeBatch(db);
-    let resBatchCount = 0;
-
-    resSnap.forEach((docSnap) => {
-      const data = docSnap.data() as Reseller;
-      const isDemo =
-        DEMO_RESELLER_IDS.includes(docSnap.id) ||
-        DEMO_RESELLER_IDS.includes(data.id) ||
-        DEMO_RESELLER_NAMES.includes(data.name) ||
-        data.email?.includes('reseller@example.com') ||
-        data.phone === '01711223344' ||
-        data.phone === '01822334455' ||
-        data.phone === '01933445566' ||
-        data.phone === '01644556677' ||
-        data.phone === '01555667788';
-
-      if (isDemo) {
-        resBatch.delete(docSnap.ref);
-        resBatchCount++;
-        deletedResellers++;
+    if (resSnap.empty) {
+      console.log('⚡ Seeding initial resellers to Cloud Firestore...');
+      const batch = writeBatch(db);
+      for (const r of INITIAL_RESELLERS) {
+        batch.set(doc(db, 'resellers', r.id), r);
       }
-    });
-
-    if (resBatchCount > 0) {
-      await resBatch.commit();
-    }
-
-    // 3. Purge demo ad spends
-    const adRef = collection(db, 'ad_spends');
-    const adSnap = await getDocs(adRef);
-    const adBatch = writeBatch(db);
-    let adBatchCount = 0;
-
-    adSnap.forEach((docSnap) => {
-      const data = docSnap.data() as AdSpendEntry;
-      if (
-        DEMO_RESELLER_IDS.includes(data.resellerId) ||
-        DEMO_RESELLER_NAMES.includes(data.resellerName) ||
-        docSnap.id.startsWith('ad_')
-      ) {
-        adBatch.delete(docSnap.ref);
-        adBatchCount++;
-      }
-    });
-
-    if (adBatchCount > 0) {
-      await adBatch.commit();
-    }
-
-    // 4. Purge demo daily works
-    const workRef = collection(db, 'daily_work');
-    const workSnap = await getDocs(workRef);
-    const workBatch = writeBatch(db);
-    let workBatchCount = 0;
-
-    workSnap.forEach((docSnap) => {
-      const data = docSnap.data() as DailyWork;
-      if (
-        DEMO_RESELLER_IDS.includes(data.resellerId) ||
-        DEMO_RESELLER_NAMES.includes(data.resellerName) ||
-        docSnap.id.startsWith('work_')
-      ) {
-        workBatch.delete(docSnap.ref);
-        workBatchCount++;
-      }
-    });
-
-    if (workBatchCount > 0) {
-      await workBatch.commit();
+      await batch.commit();
     }
   } catch (err) {
-    console.warn('Error purging demo data from Firestore:', err);
+    console.warn('Firestore seeding notice:', err);
   }
-
-  return { deletedOrders, deletedResellers };
-}
-
-/**
- * Ensures Firestore has initial product catalog on setup and ensures all demo orders/resellers are purged
- */
-export async function ensureFirestoreSeeded(force: boolean = false) {
-  try {
-    const metaRef = doc(db, 'system_metadata', 'bootstrap');
-    const metaSnap = await getDoc(metaRef);
-
-    // If already bootstrapped, ensure demo purge runs once
-    if (metaSnap.exists() && !force) {
-      // Purge any lingering demo data in background
-      await purgeAllDemoDataFromFirestore();
-      return;
-    }
-
-    // Perform initial seed for products only
-    console.log('⚡ Initializing Firestore cloud database collections...');
-    const batch = writeBatch(db);
-
-    for (const p of INITIAL_PRODUCTS) {
-      batch.set(doc(db, 'products', p.id), sanitizeForFirestore(p), { merge: true });
-    }
-
-    // Mark persistent bootstrap record
-    batch.set(metaRef, {
-      bootstrapped: true,
-      lastSeededAt: new Date().toISOString(),
-    });
-
-    await batch.commit();
-
-    // Clean any demo data
-    await purgeAllDemoDataFromFirestore();
-  } catch (err) {
-    console.warn('Firestore initialization notice:', err);
-  }
-}
-
-/**
- * Explicit function to restore/reseed sales data into Firestore only when Admin explicitly requests
- */
-export async function seedInitialSalesDataToFirestore(force: boolean = true): Promise<boolean> {
-  await ensureFirestoreSeeded(force);
-  return true;
 }
 
 // Automatically trigger background seed check
@@ -389,6 +283,7 @@ export async function updateFirestoreAdminCredentials(newUsername: string, newPa
 // ============================================================================
 
 export async function getFirestoreProducts(): Promise<Product[]> {
+  await ensureFirestoreSeeded();
   const snap = await getDocs(collection(db, 'products'));
   const products: Product[] = [];
   snap.forEach((doc) => {
@@ -517,6 +412,7 @@ export async function setDefaultFirestoreProduct(id: string): Promise<Product> {
 // ============================================================================
 
 export async function getFirestoreResellers(activeOnly: boolean = false): Promise<Reseller[]> {
+  await ensureFirestoreSeeded();
   const snap = await getDocs(collection(db, 'resellers'));
   let resellers: Reseller[] = [];
   snap.forEach((doc) => {

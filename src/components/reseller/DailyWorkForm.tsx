@@ -24,13 +24,14 @@ export const DailyWorkForm: React.FC<DailyWorkFormProps> = ({
   onWorkLogged,
   currentResellerSession,
 }) => {
+  const [resellers, setResellers] = useState<Reseller[]>([]);
+  const [loadingResellers, setLoadingResellers] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [submittedWork, setSubmittedWork] = useState<DailyWork | null>(null);
 
   // Form Fields
   const [phoneNumber, setPhoneNumber] = useState(currentResellerSession?.phone || '');
-  const [resellerName, setResellerName] = useState(currentResellerSession?.name || '');
   const [workDate, setWorkDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [startTime, setStartTime] = useState('10:00');
   const [endTime, setEndTime] = useState('18:30');
@@ -42,9 +43,12 @@ export const DailyWorkForm: React.FC<DailyWorkFormProps> = ({
   const [calculatedHours, setCalculatedHours] = useState<number>(0);
 
   useEffect(() => {
-    if (currentResellerSession) {
-      if (currentResellerSession.phone) setPhoneNumber(currentResellerSession.phone);
-      if (currentResellerSession.name) setResellerName(currentResellerSession.name);
+    loadResellers();
+  }, []);
+
+  useEffect(() => {
+    if (currentResellerSession?.phone && !phoneNumber) {
+      setPhoneNumber(currentResellerSession.phone);
     }
   }, [currentResellerSession]);
 
@@ -63,6 +67,26 @@ export const DailyWorkForm: React.FC<DailyWorkFormProps> = ({
       }
     }
   }, [startTime, endTime]);
+
+  const loadResellers = async () => {
+    try {
+      setLoadingResellers(true);
+      const data = await api.getPublicResellers();
+      setResellers(data);
+    } catch (err: any) {
+      console.error('Error fetching resellers:', err);
+    } finally {
+      setLoadingResellers(false);
+    }
+  };
+
+  // Check if entered number matches a registered reseller
+  const cleanEnteredPhone = phoneNumber.replace(/[\s\-\+]/g, '');
+  const matchedReseller = resellers.find((r) => {
+    if (!r.phone) return false;
+    const cleanRPhone = r.phone.replace(/[\s\-\+]/g, '');
+    return cleanRPhone && cleanEnteredPhone && (cleanRPhone === cleanEnteredPhone || cleanRPhone.endsWith(cleanEnteredPhone) || cleanEnteredPhone.endsWith(cleanRPhone));
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,14 +109,11 @@ export const DailyWorkForm: React.FC<DailyWorkFormProps> = ({
     const parsedOrders = parseInt(ordersGenerated) || 0;
     const parsedAdSpend = parseFloat(adSpend) || 0;
 
-    const activeResellerId = currentResellerSession?.id || trimmedPhone;
-    const activeResellerName = currentResellerSession?.name || (resellerName.trim() || `Reseller (${trimmedPhone})`);
-
     try {
       setSubmitting(true);
       const res = await api.submitDailyWork({
-        resellerId: activeResellerId,
-        resellerName: activeResellerName,
+        resellerId: matchedReseller ? matchedReseller.id : trimmedPhone,
+        resellerName: matchedReseller ? matchedReseller.name : `Reseller (${trimmedPhone})`,
         workDate,
         startTime,
         endTime,
@@ -204,46 +225,34 @@ export const DailyWorkForm: React.FC<DailyWorkFormProps> = ({
           )}
 
           <div className="space-y-5">
-            {/* 1. Reseller Identification */}
+            {/* 1. Your Number (Manually Entered) */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label htmlFor="reseller-phone-input" className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  Your Mobile Number <span className="text-red-500">*</span>
+                  Your Number <span className="text-red-500">*</span>
                 </label>
-                {currentResellerSession && (
+                {matchedReseller && (
                   <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1">
                     <UserCheck className="w-3 h-3 text-emerald-600" />
-                    Account: {currentResellerSession.name}
+                    Recognized: {matchedReseller.name}
                   </span>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <div className="relative">
-                  <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    id="reseller-phone-input"
-                    type="tel"
-                    required
-                    placeholder="Your Phone Number (e.g. 01711223344)"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 text-slate-900 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 focus:bg-white transition"
-                  />
-                </div>
-                {!currentResellerSession && (
-                  <input
-                    id="reseller-name-input"
-                    type="text"
-                    placeholder="Your Reseller Name (optional)"
-                    value={resellerName}
-                    onChange={(e) => setResellerName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 focus:bg-white transition"
-                  />
-                )}
+              <div className="relative">
+                <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  id="reseller-phone-input"
+                  type="tel"
+                  required
+                  placeholder="Enter your registered phone number (e.g. 01711223344)"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  className="w-full pl-10 pr-3.5 py-2.5 rounded-2xl border border-slate-200 bg-slate-50 text-slate-900 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 focus:bg-white transition"
+                />
               </div>
               <p className="text-[11px] text-slate-400 mt-1">
-                Enter your mobile number to bind this work log to your private reseller account.
+                Enter your mobile number manually to bind this work log to your reseller profile.
               </p>
             </div>
 

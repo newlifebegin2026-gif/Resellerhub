@@ -25,10 +25,7 @@ import {
   getFirestoreDashboardStats,
   verifyFirestoreAdminLogin,
   updateFirestoreAdminCredentials,
-  seedInitialSalesDataToFirestore,
-  purgeAllDemoDataFromFirestore,
 } from './firebase';
-import { appendOrderToGoogleSheet, isSheetsAutoSyncEnabled, getSavedSheetsToken } from './googleSheets';
 import rawFirebaseConfig from '../../firebase-applet-config.json';
 
 export const api = {
@@ -176,25 +173,9 @@ export const api = {
     organizedCustomerData?: OrganizedCustomerData;
     profitBeforeAdCost?: number;
     notes?: string;
-  }): Promise<{ message: string; order: Order; sheetSync?: { success: boolean; message: string } }> {
+  }): Promise<{ message: string; order: Order }> {
     const order = await createFirestoreOrder(orderData);
-
-    // If auto-sync to Google Sheets is enabled and authorized, append row instantly
-    let sheetSyncResult: { success: boolean; message: string } | undefined;
-    if (isSheetsAutoSyncEnabled() && getSavedSheetsToken()) {
-      try {
-        sheetSyncResult = await appendOrderToGoogleSheet(order);
-      } catch (sheetErr: any) {
-        console.warn('Google Sheet auto-sync notice:', sheetErr);
-        sheetSyncResult = { success: false, message: sheetErr.message };
-      }
-    }
-
-    return {
-      message: 'Order submitted successfully to Cloud Firestore',
-      order,
-      sheetSync: sheetSyncResult,
-    };
+    return { message: 'Order submitted successfully to Cloud Firestore', order };
   },
 
   async submitDailyWork(workData: {
@@ -575,13 +556,5 @@ export const api = {
         recentOrders: [],
       };
     }
-  },
-
-  async seedSalesData(force: boolean = true): Promise<boolean> {
-    return await seedInitialSalesDataToFirestore(force);
-  },
-
-  async purgeDemoData(): Promise<{ deletedOrders: number; deletedResellers: number }> {
-    return await purgeAllDemoDataFromFirestore();
   },
 };

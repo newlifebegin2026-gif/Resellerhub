@@ -136,15 +136,13 @@ export const ProductManagement: React.FC = () => {
   };
 
   const handleDelete = async (id: string, pName: string) => {
-    if (!window.confirm(`Are you sure you want to delete product "${pName}"? This will permanently delete it from Firebase.`)) return;
+    if (!window.confirm(`Are you sure you want to delete product "${pName}"?`)) return;
     try {
-      setProducts((prev) => prev.filter((p) => p.id !== id));
       await api.deleteProduct(id);
-      showToast(`Product "${pName}" deleted permanently.`);
-      await fetchProducts();
+      showToast(`Product "${pName}" deleted.`);
+      fetchProducts();
     } catch (err: any) {
-      alert(err.message || 'Failed to delete product from Firebase.');
-      await fetchProducts();
+      alert(err.message || 'Failed to delete product.');
     }
   };
 
